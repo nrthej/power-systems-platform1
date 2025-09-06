@@ -2,9 +2,11 @@
 
 import React, { useState } from 'react';
 import Header from './Header';
+import Dashboard from '@/components/dashboard/Dashboard';
+import UsersPage from '@/components/users/UsersPage';
 
 interface AppLayoutProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
@@ -12,8 +14,52 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   const handleNavItemClick = (itemId: string) => {
     setActiveNavItem(itemId);
-    console.log('Navigation clicked:', itemId);
-    // In a real app, this would handle routing
+  };
+
+  const renderContent = () => {
+    switch (activeNavItem) {
+      case 'dashboard':
+        return <Dashboard />;
+      case 'users':
+        return <UsersPage />;
+      case 'projects':
+        return (
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-bold text-slate-800 mb-4">Projects Page</h2>
+            <p className="text-slate-600">Projects management coming soon...</p>
+          </div>
+        );
+      case 'maps':
+        return (
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-bold text-slate-800 mb-4">Maps Page</h2>
+            <p className="text-slate-600">Geographic mapping coming soon...</p>
+          </div>
+        );
+      case 'reports':
+        return (
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-bold text-slate-800 mb-4">Reports Page</h2>
+            <p className="text-slate-600">Analytics and reporting coming soon...</p>
+          </div>
+        );
+      case 'fields':
+        return (
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-bold text-slate-800 mb-4">Fields Page</h2>
+            <p className="text-slate-600">Custom fields management coming soon...</p>
+          </div>
+        );
+      case 'preferences':
+        return (
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-bold text-slate-800 mb-4">Preferences Page</h2>
+            <p className="text-slate-600">Application settings coming soon...</p>
+          </div>
+        );
+      default:
+        return children || <Dashboard />;
+    }
   };
 
   return (
@@ -55,7 +101,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
         {/* Content Area */}
         <div className="p-6">
-          {children}
+          {renderContent()}
         </div>
       </main>
     </div>
