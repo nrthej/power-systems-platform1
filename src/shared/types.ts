@@ -301,3 +301,80 @@ export interface ExportFieldConfig {
   includeValues: boolean
   groupBy?: string
 }
+
+
+
+// Project-related types
+export interface ProjectUser {
+  id: string;
+  userId: string;
+  projectId: string;
+  role: ProjectUserRole;
+  assignedAt: Date;
+  user: User;
+}
+
+export enum ProjectUserRole {
+  ADMIN = 'ADMIN',
+  PROJECT_MANAGER = 'PROJECT_MANAGER', 
+  DEVELOPER = 'DEVELOPER'
+}
+
+// Update the existing Project interface to include user assignments
+export interface Project {
+  id: string;
+  name: string;
+  description?: string | null;
+  status: ProjectStatus;
+  startDate?: Date | null;
+  endDate?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  createdById: string;
+  createdBy: User;
+  fields?: ProjectField[];
+  rules?: FieldRule[];
+  projectUsers?: ProjectUser[];
+  
+  // Computed fields for easier access
+  adminUsers?: User[];
+  projectManagers?: User[];
+  developers?: User[];
+  assignedFields?: string[];
+  unassignedFields?: string[];
+}
+
+// DTOs for project operations
+export interface CreateProjectDto {
+  name: string;
+  description?: string;
+  status?: ProjectStatus;
+  startDate?: Date;
+  endDate?: Date;
+  adminUserIds?: string[];
+  projectManagerIds?: string[];
+  developerIds?: string[];
+  fieldNames?: string[]; // Field names to assign
+}
+
+export interface UpdateProjectDto {
+  name?: string;
+  description?: string;
+  status?: ProjectStatus;
+  startDate?: Date;
+  endDate?: Date;
+  adminUserIds?: string[];
+  projectManagerIds?: string[];
+  developerIds?: string[];
+  fieldNames?: string[]; // Field names to assign
+}
+
+export interface ProjectPaginationParams extends PaginationParams {
+  status?: ProjectStatus;
+  createdById?: string;
+  hasFields?: boolean;
+  startDateFrom?: Date;
+  startDateTo?: Date;
+}
+
+export type PaginatedProjects = PaginatedResponse<Project>;

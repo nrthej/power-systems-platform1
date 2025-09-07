@@ -5,7 +5,7 @@ import Header from './Header';
 import Dashboard from '@/components/dashboard/Dashboard';
 import UsersPage from '@/components/users/UsersPage';
 import { FieldsPage } from '@/components/fields';
-
+import { ProjectsPage } from '@/components/projects'; // Add this import
 // Auth components and hooks
 import { LogoutButton, UserInfo } from '@/components/auth/LogoutButton';
 import { useSession } from '@/hooks/useSession';
@@ -32,12 +32,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       case 'users':
         return <UsersPage />;
       case 'projects':
-        return (
-          <div className="text-center py-12">
-            <h2 className="text-2xl font-bold text-slate-800 mb-4">Projects Page</h2>
-            <p className="text-slate-600">Projects management coming soon...</p>
-          </div>
-        );
+        return <ProjectsPage />;
       case 'maps':
         return (
           <div className="text-center py-12">
