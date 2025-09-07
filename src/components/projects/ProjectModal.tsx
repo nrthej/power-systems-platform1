@@ -41,82 +41,111 @@ export function ProjectModal({
     handleUserToggle,
     moveField,
     moveAllFields,
-    moveBulkFields, // Now available from the hook
-    validateForm, // Now properly implemented
+    moveBulkFields,
+    validateForm,
     resetForm,
     isEditing
   } = useProjectModal(isOpen, project);
 
-  // 🔹 Debug render tracking
-  useEffect(() => {
-    console.log("🟢 ProjectModal mounted, isOpen:", isOpen, "step:", step);
-    return () => console.log("🔴 ProjectModal unmounted, step:", step);
-  }, [isOpen, step]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate the current step or entire form on final step
-    if (step === 3) {
-      // Final validation
+    try {
+      console.log('🔄 Form submission started, step:', step);
+      
+      // For steps 1 and 2, just move to next step
+      if (step < 3) {
+        // Simple validation for current step
+        if (step === 1 && !formData.name.trim()) {
+          console.log('❌ Step 1 validation failed: name required');
+          return;
+        }
+        if (step === 2) {
+          const totalUsers = (formData.adminUserIds?.length || 0) + 
+                            (formData.projectManagerIds?.length || 0) + 
+                            (formData.developerIds?.length || 0);
+          if (totalUsers === 0) {
+            console.log('❌ Step 2 validation failed: no users assigned');
+            return;
+          }
+        }
+        
+        console.log('✅ Moving to next step:', step + 1);
+        setStep(step + 1);
+        return;
+      }
+
+      // Step 3: Final validation and submission
       if (!validateForm()) {
+        console.log('❌ Final validation failed');
         return;
       }
-    } else {
-      // Step-specific validation
-      if (step === 1 && !formData.name.trim()) {
-        return;
+
+      // 🔧 FIXED: Create properly formatted submission data
+      const submitData: CreateProjectDto | UpdateProjectDto = {
+        name: formData.name.trim(),
+        description: formData.description.trim() || undefined,
+        ...(formData.fieldNames && formData.fieldNames.length > 0 && {
+          fieldNames: formData.fieldNames
+        })
+      };
+
+      console.log('📤 Submitting project data:', submitData);
+      
+      const success = await onSubmit(submitData);
+      
+      if (success) {
+        console.log('✅ Submission successful, closing modal');
+        resetForm();
+        onClose(); // 🔧 FIXED: Uncommented this line!
+      } else {
+        console.log('❌ Submission failed');
       }
-    }
-
-    // If not on final step, go to next step
-    if (step < 3) {
-      setStep(step + 1);
-      return;
-    }
-
-    // Final submission
-    const submitData: CreateProjectDto | UpdateProjectDto = {
-      name: formData.name.trim(),
-      description: formData.description.trim() || undefined,
-      status: 'PLANNING',
-      adminUserIds: formData.adminUserIds,
-      projectManagerIds: formData.projectManagerIds,
-      developerIds: formData.developerIds,
-      fieldNames: formData.fieldNames // Use fieldNames to match your API
-    };
-
-    const success = await onSubmit(submitData);
-    if (success) {
-      resetForm();
-      // onClose();
+    } catch (error) {
+      console.error('💥 Error in handleSubmit:', error);
     }
   };
 
   const handleClose = () => {
+    console.log('🚪 Modal closing, resetting form');
     resetForm();
     onClose();
   };
 
   const handlePrevious = () => {
     if (step > 1) {
+      console.log('⬅️ Going to previous step:', step - 1);
       setStep(step - 1);
     }
   };
 
+  // 🔧 FIXED: Complete canProceed function
   const canProceed = () => {
     switch (step) {
       case 1:
         return formData.name.trim().length >= 3;
-      case 2:
-        const totalUsers = formData.adminUserIds.length + formData.projectManagerIds.length + formData.developerIds.length;
+      case 2: {
+        const totalUsers = (formData.adminUserIds?.length || 0) + 
+                          (formData.projectManagerIds?.length || 0) + 
+                          (formData.developerIds?.length || 0);
         return totalUsers > 0;
+      }
       case 3:
         return true; // Field assignment is optional
       default:
         return false;
     }
   };
+
+  // 🔧 FIXED: Add error boundary effect
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      console.error('🚨 Unhandled error in ProjectModal:', event.error);
+    };
+
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -206,23 +235,15 @@ export function ProjectModal({
           )}
 
           {step === 3 && (
-            <>
-              {console.log(
-                'Rendering step 3, assignedFields:',
-                assignedFields,
-                'unassignedFields:',
-                unassignedFields
-              )}
-              <ProjectFieldAssignment
-                assignedFields={assignedFields}
-                unassignedFields={unassignedFields}
-                onMoveField={moveField}
-                onMoveAllFields={moveAllFields}
-                onMoveBulkFields={moveBulkFields} // Pass the bulk function
-                isLoading={isLoading}
-                mode={isEditing ? 'edit' : 'add'} // Pass the mode
-              />
-            </>
+            <ProjectFieldAssignment
+              assignedFields={assignedFields}
+              unassignedFields={unassignedFields}
+              onMoveField={moveField}
+              onMoveAllFields={moveAllFields}
+              onMoveBulkFields={moveBulkFields}
+              isLoading={isLoading}
+              mode={isEditing ? 'edit' : 'add'}
+            />
           )}
 
           {/* Navigation and Actions */}

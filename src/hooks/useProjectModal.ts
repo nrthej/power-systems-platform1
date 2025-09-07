@@ -62,9 +62,7 @@ export function useProjectModal(isOpen: boolean, project?: Project | null) {
         resetForm();
       }
     }
-  }, [isOpen]);   // 🔑 remove "project" from deps
-  
-  
+  }, [isOpen]);
 
   // Input change handler
   const handleInputChange = useCallback((field: string, value: any) => {
@@ -159,6 +157,39 @@ export function useProjectModal(isOpen: boolean, project?: Project | null) {
     }
   }, [availableFields]);
 
+  // 🆕 BULK FIELD MOVEMENT HANDLER - This was missing!
+  const moveBulkFields = useCallback((fieldNames: string[], direction: 'assign' | 'unassign') => {
+    try {
+      if (!Array.isArray(fieldNames) || fieldNames.length === 0) {
+        console.warn('Invalid field names for bulk move:', fieldNames);
+        return;
+      }
+
+      console.log('moveBulkFields called:', fieldNames, direction); // Debug log
+
+      setFormData(prev => {
+        const currentFields = Array.isArray(prev.fieldNames) ? prev.fieldNames : [];
+        
+        if (direction === 'assign') {
+          // Add fields that aren't already assigned
+          const fieldsToAdd = fieldNames.filter(fieldName => !currentFields.includes(fieldName));
+          return {
+            ...prev,
+            fieldNames: [...currentFields, ...fieldsToAdd]
+          };
+        } else {
+          // Remove the specified fields
+          return {
+            ...prev,
+            fieldNames: currentFields.filter(f => !fieldNames.includes(f))
+          };
+        }
+      });
+    } catch (error) {
+      console.error('Error moving bulk fields:', error);
+    }
+  }, []);
+
   // Validation function
   const validateForm = useCallback((): boolean => {
     try {
@@ -225,6 +256,7 @@ export function useProjectModal(isOpen: boolean, project?: Project | null) {
     handleUserToggle,
     moveField,
     moveAllFields,
+    moveBulkFields, // 🆕 NOW PROPERLY EXPORTED!
     validateForm,
     resetForm
   };
