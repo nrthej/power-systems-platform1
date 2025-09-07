@@ -4,12 +4,12 @@ import React, { useState } from 'react';
 import Header from './Header';
 import Dashboard from '@/components/dashboard/Dashboard';
 import UsersPage from '@/components/users/UsersPage';
+import { FieldsPage } from '@/components/fields';
 
 // Auth components and hooks
 import { LogoutButton, UserInfo } from '@/components/auth/LogoutButton';
 import { useSession } from '@/hooks/useSession';
 
-import { FieldsPage } from '@/components/fields'; // Add this line
 
 interface AppLayoutProps {
   children?: React.ReactNode;

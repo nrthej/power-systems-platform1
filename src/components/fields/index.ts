@@ -1,14 +1,9 @@
-// src/components/fields/index.ts
-
-// Main Components
-export { FieldsPage } from './FieldsPage';
-export { FieldStats } from './FieldStats';
+export { default as FieldsPage } from './FieldsPage';
+export { FieldsList } from './FieldsList';
 export { FieldsTable } from './FieldsTable';
-export { FieldTypesGrid } from './FieldTypesGrid';
 export { FieldModal } from './FieldModal';
-
-// Data and Types
+export { FieldTypesGrid } from './FieldTypesGrid';
+export { RulesTable } from './RulesTable';
+export { ImportModal, ExportModal } from './ImportExportModals';
+export { default as RuleBuilder } from './RuleBuilder';
 export * from './fieldsData';
-
-// Default export for the main page
-export { FieldsPage as default } from './FieldsPage';

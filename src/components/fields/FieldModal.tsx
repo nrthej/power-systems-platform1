@@ -1,542 +1,470 @@
-// src/components/fields/FieldModal.tsx
-import { useState, useEffect } from 'react';
-import { 
-  X, 
-  Save, 
-  Plus, 
-  Trash2,
-  Type, 
-  Hash, 
-  Calendar, 
-  List, 
-  ToggleLeft, 
-  Mail, 
-  MapPin, 
-  DollarSign,
-  AlertCircle
-} from 'lucide-react';
+'use client';
 
-import Button from '../ui/Button';
-import Input from '../ui/Input';
-import Card from '../ui/Card';
-import { Field, FieldType, EntityType, FieldStatus, FieldValidation, fieldTypeInfo } from './fieldsData';
+import React, { useState, useEffect } from 'react';
+import { X, Database, Plus, Trash2, Info, Eye } from 'lucide-react';
+import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
+import { ErrorAlert } from '@/components/ui/Alert';
+import RuleBuilder, { Rule } from './RuleBuilder';
+import type { Field, CreateFieldDto, UpdateFieldDto } from '@/shared/types';
 
 interface FieldModalProps {
-  field?: Field | null;
-  onSave: (fieldData: Partial<Field>) => void;
+  isOpen: boolean;
   onClose: () => void;
+  onSubmit: (data: CreateFieldDto | UpdateFieldDto) => Promise<boolean>;
+  field?: Field | null;
+  isLoading?: boolean;
+  error?: string | null;
+  availableFields?: Field[];
 }
 
-interface FieldFormData {
-  name: string;
-  label: string;
-  description: string;
-  type: FieldType;
-  category: string;
-  entityType: EntityType;
-  isRequired: boolean;
-  status: FieldStatus;
-  displayOrder: number;
-  validation: FieldValidation;
-  permissibleValues: string[];
-  parentFieldId?: string;
-}
+const fieldTypes = [
+  { id: 'Text', name: 'Text', icon: '📝', description: 'Free-form text input' },
+  { id: 'Number', name: 'Number', icon: '🔢', description: 'Integer or decimal values' },
+  { id: 'Date', name: 'Date', icon: '📅', description: 'Calendar date picker' },
+  { id: 'Boolean', name: 'Boolean', icon: '✅', description: 'Yes/No toggle' },
+  { id: 'Select', name: 'Select', icon: '📋', description: 'Dropdown with single choice' },
+  { id: 'Multi-Select', name: 'Multi-Select', icon: '🏷️', description: 'Dropdown with multiple choices' }
+];
 
-const initialFormData: FieldFormData = {
-  name: '',
-  label: '',
-  description: '',
-  type: FieldType.TEXT,
-  category: 'technical',
-  entityType: EntityType.PROJECT,
-  isRequired: false,
-  status: FieldStatus.ACTIVE,
-  displayOrder: 0,
-  validation: {},
-  permissibleValues: [],
-  parentFieldId: undefined
-};
-
-export function FieldModal({ field, onSave, onClose }: FieldModalProps) {
-  const [formData, setFormData] = useState<FieldFormData>(initialFormData);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [newPermissibleValue, setNewPermissibleValue] = useState('');
+export function FieldModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  field,
+  isLoading = false,
+  error,
+  availableFields = []
+}: FieldModalProps) {
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    type: 'Text',
+    parent: '',
+    values: [] as string[],
+    rules: [] as Rule[]
+  });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [chipInput, setChipInput] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
 
   const isEditing = !!field;
 
-  // Initialize form data
+  // Reset form on open
   useEffect(() => {
-    if (field) {
-      setFormData({
-        name: field.name,
-        label: field.label,
-        description: field.description || '',
-        type: field.type,
-        category: field.category,
-        entityType: field.entityType,
-        isRequired: field.isRequired,
-        status: field.status,
-        displayOrder: field.displayOrder,
-        validation: field.validation || {},
-        permissibleValues: field.permissibleValues || [],
-        parentFieldId: field.parentFieldId
-      });
-    } else {
-      setFormData(initialFormData);
-    }
-    setErrors({});
-  }, [field]);
-
-  // Get current field type info
-  const currentFieldTypeInfo = fieldTypeInfo.find(ft => ft.type === formData.type);
-
-  // Icon mapping
-  const getFieldTypeIcon = (type: FieldType) => {
-    const iconClass = "w-4 h-4";
-    switch (type) {
-      case FieldType.TEXT: return <Type className={iconClass} />;
-      case FieldType.NUMBER: return <Hash className={iconClass} />;
-      case FieldType.DATE: return <Calendar className={iconClass} />;
-      case FieldType.SELECT:
-      case FieldType.MULTI_SELECT: return <List className={iconClass} />;
-      case FieldType.BOOLEAN: return <ToggleLeft className={iconClass} />;
-      case FieldType.EMAIL: return <Mail className={iconClass} />;
-      case FieldType.LOCATION: return <MapPin className={iconClass} />;
-      case FieldType.CURRENCY: return <DollarSign className={iconClass} />;
-      default: return <Type className={iconClass} />;
-    }
-  };
-
-  // Generate field name from label
-  const generateFieldName = (label: string): string => {
-    return label
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, '')
-      .replace(/\s+/g, '_')
-      .trim();
-  };
-
-  // Handle label change and auto-generate name if not editing
-  const handleLabelChange = (value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      label: value,
-      ...((!isEditing && !prev.name) ? { name: generateFieldName(value) } : {})
-    }));
-  };
-
-  // Validation
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.label.trim()) {
-      newErrors.label = 'Field label is required';
-    }
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'Field name is required';
-    } else if (!/^[a-z][a-z0-9_]*$/.test(formData.name)) {
-      newErrors.name = 'Field name must start with a letter and contain only lowercase letters, numbers, and underscores';
-    }
-
-    if (currentFieldTypeInfo?.supportsPermissibleValues && formData.permissibleValues.length === 0) {
-      newErrors.permissibleValues = 'At least one option is required for select fields';
-    }
-
-    if (formData.type === FieldType.NUMBER || formData.type === FieldType.CURRENCY) {
-      if (formData.validation.min !== undefined && formData.validation.max !== undefined) {
-        if (formData.validation.min >= formData.validation.max) {
-          newErrors.validation = 'Minimum value must be less than maximum value';
-        }
+    if (isOpen) {
+      if (field) {
+        setFormData({
+          name: field.name,
+          description: field.description || '',
+          type: field.type,
+          parent: field.parent || '',
+          values: field.values || [],
+          rules: (field.rules as Rule[]) || []
+        });
+      } else {
+        setFormData({
+          name: '',
+          description: '',
+          type: 'Text',
+          parent: '',
+          values: [],
+          rules: []
+        });
       }
+      setChipInput('');
+      setFormErrors({});
+      setShowPreview(false);
     }
+  }, [isOpen, field]);
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  // When field name changes, update existing rules' conditionField
+  useEffect(() => {
+    if (formData.name && formData.rules.length > 0) {
+      const updatedRules = formData.rules.map(rule => ({
+        ...rule,
+        conditionField: formData.name // Always set to current field name
+      }));
+      setFormData(prev => ({ ...prev, rules: updatedRules }));
+    }
+  }, [formData.name]);
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!formData.name.trim()) errors.name = 'Field name is required';
+    if (!formData.description.trim()) errors.description = 'Description is required';
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
-  // Handle save
-  const handleSave = () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!validateForm()) return;
 
-    const fieldData: Partial<Field> = {
-      ...formData,
-      updatedAt: new Date().toISOString(),
-      ...((!isEditing) ? { 
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
-        createdBy: 'current-user@company.com'
-      } : {})
+    const payload: CreateFieldDto | UpdateFieldDto = {
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+      type: formData.type,
+      parent: formData.parent || null,
+      values:
+        formData.type === 'Select' || formData.type === 'Multi-Select'
+          ? formData.values
+          : undefined,
+      rules: formData.rules
     };
 
-    onSave(fieldData);
+    const success = await onSubmit(payload);
+    if (success) onClose();
   };
 
-  // Handle permissible values
-  const addPermissibleValue = () => {
-    if (newPermissibleValue.trim() && !formData.permissibleValues.includes(newPermissibleValue.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        permissibleValues: [...prev.permissibleValues, newPermissibleValue.trim()]
-      }));
-      setNewPermissibleValue('');
+  const handleInputChange = (field: string, value: any) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (formErrors[field]) {
+      setFormErrors((prev) => ({ ...prev, [field]: '' }));
     }
   };
 
-  const removePermissibleValue = (index: number) => {
-    setFormData(prev => ({
+  const addChip = () => {
+    if (chipInput.trim() && !formData.values.includes(chipInput.trim())) {
+      setFormData((prev) => ({
+        ...prev,
+        values: [...prev.values, chipInput.trim()]
+      }));
+      setChipInput('');
+    }
+  };
+
+  const removeChip = (idx: number) => {
+    setFormData((prev) => ({
       ...prev,
-      permissibleValues: prev.permissibleValues.filter((_, i) => i !== index)
+      values: prev.values.filter((_, i) => i !== idx)
     }));
   };
 
-  // Handle validation changes
-  const updateValidation = (key: keyof FieldValidation, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      validation: {
-        ...prev.validation,
-        [key]: value
-      }
+  const handleRulesChange = (newRules: Rule[]) => {
+    // Ensure all rules have the current field name as conditionField
+    const rulesWithCorrectSource = newRules.map(rule => ({
+      ...rule,
+      conditionField: formData.name || rule.conditionField
     }));
+    setFormData((prev) => ({ ...prev, rules: rulesWithCorrectSource }));
   };
+
+  const selectedFieldType = fieldTypes.find(ft => ft.id === formData.type);
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
-            {isEditing ? 'Edit Field' : 'Create New Field'}
-          </h2>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="h-8 w-8 p-0"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 max-h-[calc(90vh-140px)] overflow-y-auto space-y-6">
-          
-          {/* Basic Information */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900">Basic Information</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Field Label <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  value={formData.label}
-                  onChange={(e) => handleLabelChange(e.target.value)}
-                  placeholder="e.g., Voltage Level (kV)"
-                  className={errors.label ? 'border-red-300' : ''}
-                />
-                {errors.label && (
-                  <p className="mt-1 text-sm text-red-600">{errors.label}</p>
-                )}
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex">
+        {/* Main Form */}
+        <div className="flex-1 flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-slate-50">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center">
+                <Database className="w-6 h-6 text-white" />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Field Name <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., voltage_level"
-                  disabled={isEditing}
-                  className={errors.name ? 'border-red-300' : ''}
-                />
-                {errors.name && (
-                  <p className="mt-1 text-sm text-red-600">{errors.name}</p>
-                )}
-                {isEditing && (
-                  <p className="mt-1 text-xs text-gray-500">Field name cannot be changed after creation</p>
-                )}
+                <h2 className="text-xl font-semibold text-slate-900">
+                  {isEditing ? 'Edit Field' : 'Create New Field'}
+                </h2>
+                <p className="text-sm text-slate-600">
+                  {isEditing ? 'Update field configuration and rules' : 'Define a new project field with validation rules'}
+                </p>
               </div>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Describe what this field is used for..."
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-              />
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setShowPreview(!showPreview)}
+                className="p-2 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-all"
+                title="Toggle preview"
+              >
+                <Eye className="w-5 h-5" />
+              </button>
+              <button
+                onClick={onClose}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-all"
+                disabled={isLoading}
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
           </div>
 
-          {/* Field Type Selection */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900">Field Type</h3>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {fieldTypeInfo.map((typeInfo) => (
-                <button
-                  key={typeInfo.type}
-                  type="button"
-                  onClick={() => setFormData(prev => ({ 
-                    ...prev, 
-                    type: typeInfo.type,
-                    permissibleValues: typeInfo.supportsPermissibleValues ? prev.permissibleValues : []
-                  }))}
-                  className={`p-3 border rounded-lg text-left transition-colors ${
-                    formData.type === typeInfo.type
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    {getFieldTypeIcon(typeInfo.type)}
-                    <span className="font-medium text-sm">{typeInfo.label}</span>
+          {/* Form Content */}
+          <div className="flex-1 overflow-y-auto">
+            <form onSubmit={handleSubmit} className="p-6 space-y-8">
+              {error && <ErrorAlert message={error} closable={false} />}
+
+              {/* Basic Information */}
+              <div className="space-y-6">
+                <div className="flex items-center space-x-2 text-slate-700">
+                  <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Info className="w-4 h-4 text-blue-600" />
                   </div>
-                  <p className="text-xs text-gray-600">{typeInfo.description}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Configuration */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900">Configuration</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Category
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="technical">Technical</option>
-                  <option value="financial">Financial</option>
-                  <option value="administrative">Administrative</option>
-                  <option value="regulatory">Regulatory</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Entity Type
-                </label>
-                <select
-                  value={formData.entityType}
-                  onChange={(e) => setFormData(prev => ({ ...prev, entityType: e.target.value as EntityType }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value={EntityType.PROJECT}>Project</option>
-                  <option value={EntityType.USER}>User</option>
-                  <option value={EntityType.ASSET}>Asset</option>
-                  <option value={EntityType.GLOBAL}>Global</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Status
-                </label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as FieldStatus }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value={FieldStatus.ACTIVE}>Active</option>
-                  <option value={FieldStatus.INACTIVE}>Inactive</option>
-                  <option value={FieldStatus.DEPRECATED}>Deprecated</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-6">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={formData.isRequired}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isRequired: e.target.checked }))}
-                  className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">Required field</span>
-              </label>
-
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-700">Display Order:</label>
-                <input
-                  type="number"
-                  value={formData.displayOrder}
-                  onChange={(e) => setFormData(prev => ({ ...prev, displayOrder: parseInt(e.target.value) || 0 }))}
-                  className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm"
-                  min="0"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Permissible Values for SELECT fields */}
-          {currentFieldTypeInfo?.supportsPermissibleValues && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900">Options</h3>
-              
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <Input
-                    value={newPermissibleValue}
-                    onChange={(e) => setNewPermissibleValue(e.target.value)}
-                    placeholder="Enter option value"
-                    onKeyPress={(e) => e.key === 'Enter' && addPermissibleValue()}
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={addPermissibleValue}
-                    disabled={!newPermissibleValue.trim()}
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
+                  <h3 className="font-semibold">Basic Information</h3>
                 </div>
 
-                {formData.permissibleValues.length > 0 && (
-                  <div className="space-y-2">
-                    {formData.permissibleValues.map((value, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
-                        <span className="text-sm">{value}</span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removePermissibleValue(index)}
-                          className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    ))}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="lg:col-span-2">
+                    <Input
+                      label="Field Name"
+                      placeholder="e.g., Project Status, Customer Rating"
+                      value={formData.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      error={formErrors.name}
+                      disabled={isLoading}
+                      required
+                    />
                   </div>
-                )}
 
-                {errors.permissibleValues && (
-                  <p className="text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
-                    {errors.permissibleValues}
-                  </p>
-                )}
+                  <div className="lg:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Description
+                    </label>
+                    <textarea
+                      placeholder="Describe what this field is used for and any special requirements..."
+                      value={formData.description}
+                      onChange={(e) => handleInputChange('description', e.target.value)}
+                      disabled={isLoading}
+                      rows={3}
+                      className="w-full py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-800 placeholder-slate-500 resize-none transition-all"
+                    />
+                    {formErrors.description && (
+                      <p className="text-sm text-red-600 mt-1">{formErrors.description}</p>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* Validation Rules */}
-          {currentFieldTypeInfo?.validationOptions && currentFieldTypeInfo.validationOptions.length > 1 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900">Validation Rules</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {currentFieldTypeInfo.validationOptions.includes('minLength') && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Minimum Length
-                    </label>
-                    <Input
-                      type="number"
-                      value={formData.validation.minLength || ''}
-                      onChange={(e) => updateValidation('minLength', parseInt(e.target.value) || undefined)}
-                      placeholder="0"
-                      min="0"
-                    />
+              {/* Field Configuration */}
+              <div className="space-y-6">
+                <div className="flex items-center space-x-2 text-slate-700">
+                  <div className="w-6 h-6 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <Database className="w-4 h-4 text-purple-600" />
                   </div>
-                )}
+                  <h3 className="font-semibold">Configuration</h3>
+                </div>
 
-                {currentFieldTypeInfo.validationOptions.includes('maxLength') && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Type Selection */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Maximum Length
+                    <label className="block text-sm font-medium text-slate-700 mb-3">
+                      Field Type
                     </label>
-                    <Input
-                      type="number"
-                      value={formData.validation.maxLength || ''}
-                      onChange={(e) => updateValidation('maxLength', parseInt(e.target.value) || undefined)}
-                      placeholder="255"
-                      min="1"
-                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      {fieldTypes.map((type) => (
+                        <button
+                          key={type.id}
+                          type="button"
+                          onClick={() => handleInputChange('type', type.id)}
+                          className={`p-3 rounded-xl border-2 transition-all text-left ${
+                            formData.type === type.id
+                              ? 'border-blue-500 bg-blue-50'
+                              : 'border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2 mb-1">
+                            <span className="text-lg">{type.icon}</span>
+                            <span className="font-medium text-sm">{type.name}</span>
+                          </div>
+                          <p className="text-xs text-slate-500">{type.description}</p>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                )}
 
-                {currentFieldTypeInfo.validationOptions.includes('min') && (
+                  {/* Parent Field */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Minimum Value
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Parent Field (Optional)
                     </label>
-                    <Input
-                      type="number"
-                      value={formData.validation.min || ''}
-                      onChange={(e) => updateValidation('min', parseFloat(e.target.value) || undefined)}
-                      placeholder="0"
-                    />
-                  </div>
-                )}
-
-                {currentFieldTypeInfo.validationOptions.includes('max') && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Maximum Value
-                    </label>
-                    <Input
-                      type="number"
-                      value={formData.validation.max || ''}
-                      onChange={(e) => updateValidation('max', parseFloat(e.target.value) || undefined)}
-                      placeholder="1000"
-                    />
-                  </div>
-                )}
-
-                {currentFieldTypeInfo.validationOptions.includes('pattern') && (
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Pattern (Regex)
-                    </label>
-                    <Input
-                      value={formData.validation.pattern || ''}
-                      onChange={(e) => updateValidation('pattern', e.target.value || undefined)}
-                      placeholder="^[A-Z]{2,3}$"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">
-                      JavaScript regular expression pattern for validation
+                    <select
+                      value={formData.parent}
+                      onChange={(e) => {
+                        const nextParent = e.target.value;
+                        if (field && nextParent === field.name) return;
+                        handleInputChange('parent', nextParent);
+                      }}
+                      disabled={isLoading}
+                      className="w-full py-3 px-4 border border-slate-200 rounded-xl bg-slate-50 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    >
+                      <option value="">No parent field</option>
+                      {availableFields
+                        .filter(f => f.name !== formData.name) // Don't allow self as parent
+                        .map((f) => (
+                          <option key={f.id} value={f.name}>
+                            {f.name} ({f.type})
+                          </option>
+                        ))}
+                    </select>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Link this field to another field for hierarchical organization
                     </p>
                   </div>
+                </div>
+
+                {/* Permissible Values */}
+                {(formData.type === 'Select' || formData.type === 'Multi-Select') && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Permissible Values
+                    </label>
+                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                      {formData.values.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {formData.values.map((val, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center bg-blue-100 text-blue-800 px-3 py-1.5 rounded-lg text-sm font-medium border border-blue-200"
+                            >
+                              {val}
+                              <button
+                                type="button"
+                                onClick={() => removeChip(idx)}
+                                className="ml-2 text-blue-600 hover:text-blue-800 transition-colors"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          placeholder="Add a new value..."
+                          value={chipInput}
+                          onChange={(e) => setChipInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addChip();
+                            }
+                          }}
+                          className="flex-1 py-2 px-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-all"
+                        />
+                        <Button 
+                          type="button" 
+                          size="sm" 
+                          onClick={addChip}
+                          className="flex items-center space-x-1"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Add</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
 
-              {errors.validation && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
-                  {errors.validation}
-                </p>
-              )}
-            </div>
-          )}
+              {/* Rules Section */}
+              <div className="space-y-6">
+                <div className="flex items-center space-x-2 text-slate-700">
+                  <div className="w-6 h-6 bg-green-100 rounded-lg flex items-center justify-center">
+                    <Database className="w-4 h-4 text-green-600" />
+                  </div>
+                  <h3 className="font-semibold">Business Rules</h3>
+                </div>
+                <RuleBuilder
+                  rules={formData.rules}
+                  onChange={handleRulesChange}
+                  availableFields={availableFields}
+                  currentFieldName={formData.name} // Lock source field to current field
+                  isInsideModal={true} // Show modal-specific UI
+                />
+              </div>
+
+              {/* Form Actions */}
+              <div className="flex justify-end space-x-3 pt-6 border-t border-slate-200">
+                <Button type="button" variant="secondary" onClick={onClose} disabled={isLoading}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? (
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      {isEditing ? 'Updating...' : 'Creating...'}
+                    </div>
+                  ) : isEditing ? (
+                    'Update Field'
+                  ) : (
+                    'Create Field'
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave}>
-            <Save className="w-4 h-4 mr-2" />
-            {isEditing ? 'Update Field' : 'Create Field'}
-          </Button>
-        </div>
-      </Card>
+        {/* Preview Panel */}
+        {showPreview && (
+          <div className="w-80 border-l border-slate-200 bg-slate-50 flex flex-col">
+            <div className="p-4 border-b border-slate-200">
+              <h3 className="font-semibold text-slate-900 flex items-center">
+                <Eye className="w-4 h-4 mr-2" />
+                Live Preview
+              </h3>
+            </div>
+            <div className="flex-1 p-4">
+              <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    {selectedFieldType?.icon || '📄'}
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-slate-900">
+                      {formData.name || 'Field Name'}
+                    </h4>
+                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                      {formData.type}
+                    </span>
+                  </div>
+                </div>
+                
+                <p className="text-sm text-slate-600">
+                  {formData.description || 'Field description will appear here...'}
+                </p>
+
+                {formData.parent && (
+                  <div className="text-xs text-slate-500">
+                    Parent: <span className="font-medium">{formData.parent}</span>
+                  </div>
+                )}
+
+                {formData.values.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 mb-2">Values:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {formData.values.slice(0, 3).map((val, idx) => (
+                        <span key={idx} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                          {val}
+                        </span>
+                      ))}
+                      {formData.values.length > 3 && (
+                        <span className="text-xs px-2 py-1 bg-slate-100 text-slate-600 rounded">
+                          +{formData.values.length - 3} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {formData.rules.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 mb-2">Rules:</p>
+                    <div className="text-xs text-slate-600">
+                      {formData.rules.length} rule{formData.rules.length !== 1 ? 's' : ''} configured
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

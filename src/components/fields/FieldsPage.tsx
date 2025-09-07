@@ -1,265 +1,385 @@
-// src/components/fields/FieldsPage.tsx
 'use client';
 
-import { useState } from 'react';
-import { Plus, Upload, Download, Settings } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Download, Upload, FileDown } from 'lucide-react';
+import { TabNavigation } from '@/components/ui/TabNavigation';
+import { ActionButtonGroup } from '@/components/ui/ActionButtonGroup';
+import { SearchFilterBar } from '@/components/ui/SearchFilterBar';
+import { FieldsList, type FieldsListRef } from './FieldsList';
+import { FieldTypesGrid, type FieldTypesGridRef } from './FieldTypesGrid';
+import { RulesTable, type RulesTableRef } from './RulesTable';
+import { ImportModal, ExportModal } from './ImportExportModals';
+import { fieldsData, type Field, type FieldType } from './fieldsData';
+import { SuccessAlert } from '@/components/ui/Alert';
 
-// UI Components
-import { Grid } from '../ui/Grid';
-import { TabNavigation } from '../ui/TabNavigation';
-import { ActionButtonGroup } from '../ui/ActionButtonGroup';
-import { SearchFilterBar } from '../ui/SearchFilterBar';
-
-// Fields Components
-import { FieldStats } from './FieldStats';
-import { FieldsTable } from './FieldsTable';
-import { FieldTypesGrid } from './FieldTypesGrid';
-import { FieldModal } from './FieldModal';
-
-// Data and Types
-import { mockFields, fieldTypeInfo, getFieldStats, Field, FieldType } from './fieldsData';
-
-type ActiveTab = 'fields' | 'types';
-
-interface FieldsPageProps {
-  className?: string;
-}
-
-export function FieldsPage({ className }: FieldsPageProps) {
-  // 1. State management
-  const [activeTab, setActiveTab] = useState<ActiveTab>('fields');
+export default function FieldsPage() {
+  const [activeTab, setActiveTab] = useState<'fields' | 'types' | 'rules'>('fields');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedFields, setSelectedFields] = useState<string[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingField, setEditingField] = useState<Field | null>(null);
-  const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [filterEntityType, setFilterEntityType] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  // 2. Data filtering
-  const filteredFields = mockFields.filter(field => {
-    const matchesSearch = !searchTerm || 
-      field.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      field.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      field.description?.toLowerCase().includes(searchTerm.toLowerCase());
+  // Modal states
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Data state (for now mock, later API)
+  const [fields, setFields] = useState<Field[]>([]);
+  const [fieldTypes, setFieldTypes] = useState<FieldType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Refs for modals
+  const fieldsListRef = useRef<FieldsListRef>(null);
+  const fieldTypesGridRef = useRef<FieldTypesGridRef>(null);
+  const rulesTableRef = useRef<RulesTableRef>(null);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => setSuccessMessage(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [fieldsResponse, fieldTypesResponse] = await Promise.all([
+        fieldsData.getFields({ limit: 100 }),
+        fieldsData.getFieldTypes()
+      ]);
+      setFields(fieldsResponse.fields);
+      setFieldTypes(fieldTypesResponse.types);
+    } catch (err) {
+      console.error('Error loading fields:', err);
+      setError('Failed to load fields. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle import
+  const handleImport = async (importedData: any[]) => {
+    try {
+      setImportLoading(true);
+      
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // In real app, this would call your API
+      // const response = await api.bulkCreateFields(importedData);
+      
+      // Mock successful import
+      const newFields = importedData.map((data, index) => ({
+        id: `imported-${Date.now()}-${index}`,
+        name: data.name,
+        description: data.description || '',
+        type: data.type,
+        parent: data.parent || null,
+        values: data.values || [],
+        rules: [],
+        status: data.status || 'Active',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }));
+
+      // Update local state (in real app, this would be handled by your state management)
+      setFields(prev => [...prev, ...newFields]);
+      
+      setSuccessMessage(`Successfully imported ${importedData.length} fields!`);
+      
+      // Refresh the list
+      fieldsListRef.current?.refreshFields();
+      
+      return true;
+    } catch (error) {
+      console.error('Import failed:', error);
+      return false;
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  // Handle export
+  const handleExport = async (config: any) => {
+    try {
+      setExportLoading(true);
+      
+      // Simulate processing delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Prepare export data based on config
+      const exportData = fields.map(field => {
+        const row: any = {};
+        
+        config.fields.forEach((fieldKey: string) => {
+          switch (fieldKey) {
+            case 'name':
+              row.name = field.name;
+              break;
+            case 'type':
+              row.type = field.type;
+              break;
+            case 'description':
+              row.description = field.description || '';
+              break;
+            case 'status':
+              row.status = field.status;
+              break;
+            case 'parent':
+              row.parent = field.parent || '';
+              break;
+            case 'createdAt':
+              row.createdAt = new Date().toISOString().split('T')[0]; // Mock date
+              break;
+            case 'updatedAt':
+              row.updatedAt = new Date().toISOString().split('T')[0]; // Mock date
+              break;
+          }
+        });
+
+        if (config.includeValues && field.values) {
+          row.values = field.values.join(', ');
+        }
+
+        if (config.includeRules && field.rules) {
+          if (config.format === 'json') {
+            row.rules = field.rules;
+          } else {
+            row.rulesCount = field.rules.length;
+          }
+        }
+
+        return row;
+      });
+
+      // Generate and download file
+      const filename = `fields-export-${new Date().toISOString().split('T')[0]}`;
+      
+      if (config.format === 'csv') {
+        downloadCSV(exportData, filename);
+      } else if (config.format === 'excel') {
+        // In real app, use libraries like xlsx
+        downloadCSV(exportData, filename); // Fallback to CSV for demo
+      } else if (config.format === 'json') {
+        downloadJSON(exportData, filename);
+      }
+
+      setSuccessMessage(`Successfully exported ${exportData.length} fields as ${config.format.toUpperCase()}!`);
+      
+      return true;
+    } catch (error) {
+      console.error('Export failed:', error);
+      return false;
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  // Utility functions for file download
+  const downloadCSV = (data: any[], filename: string) => {
+    if (data.length === 0) return;
     
-    const matchesCategory = filterCategory === 'all' || field.category === filterCategory;
-    const matchesEntityType = filterEntityType === 'all' || field.entityType === filterEntityType;
-    const matchesStatus = filterStatus === 'all' || field.status === filterStatus;
+    const headers = Object.keys(data[0]).join(',');
+    const rows = data.map(row => 
+      Object.values(row).map(value => 
+        typeof value === 'string' && value.includes(',') 
+          ? `"${value}"` 
+          : value
+      ).join(',')
+    );
     
-    return matchesSearch && matchesCategory && matchesEntityType && matchesStatus;
-  });
+    const csvContent = [headers, ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${filename}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
-  // 3. Calculated stats
-  const stats = getFieldStats();
+  const downloadJSON = (data: any[], filename: string) => {
+    const jsonContent = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonContent], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${filename}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
-  // 4. Config objects
+  // Calculate total rules across all fields
+  const totalRules = fields.reduce((total, field) => {
+    return total + (field.rules?.length || 0);
+  }, 0);
+
   const tabs = [
-    { id: 'fields' as const, label: 'Fields', count: filteredFields.length },
-    { id: 'types' as const, label: 'Field Types', count: fieldTypeInfo.length }
+    { id: 'fields', label: 'Fields', count: fields.length },
+    { id: 'types', label: 'Field Types', count: fieldTypes.length },
+    { id: 'rules', label: 'Rules', count: totalRules }
   ];
 
   const actionButtons = [
-    { 
-      id: 'import', 
-      label: 'Import', 
-      icon: <Upload className="w-4 h-4" />, 
-      variant: 'secondary' as const, 
-      onClick: () => console.log('Import fields') 
-    },
-    { 
-      id: 'export', 
-      label: 'Export', 
-      icon: <Download className="w-4 h-4" />, 
-      variant: 'secondary' as const, 
-      onClick: () => console.log('Export fields') 
-    },
-    { 
-      id: 'settings', 
-      label: 'Settings', 
-      icon: <Settings className="w-4 h-4" />, 
-      variant: 'secondary' as const, 
-      onClick: () => console.log('Field settings') 
-    },
-    { 
-      id: 'add', 
-      label: 'Add Field', 
-      icon: <Plus className="w-4 h-4" />, 
-      variant: 'primary' as const, 
+    {
+      id: 'import',
+      label: 'Import',
+      icon: <Upload className="w-4 h-4" />,
+      variant: 'secondary' as const,
       onClick: () => {
-        setEditingField(null);
-        setIsModalOpen(true);
+        if (activeTab === 'fields') {
+          setIsImportModalOpen(true);
+        } else {
+          // Handle import for other tabs if needed
+          console.log(`Import ${activeTab} - to be implemented`);
+        }
+      }
+    },
+    {
+      id: 'export',
+      label: 'Export',
+      icon: <FileDown className="w-4 h-4" />,
+      variant: 'secondary' as const,
+      onClick: () => {
+        if (activeTab === 'fields') {
+          setIsExportModalOpen(true);
+        } else {
+          // Handle export for other tabs if needed
+          console.log(`Export ${activeTab} - to be implemented`);
+        }
+      }
+    },
+    {
+      id: 'refresh',
+      label: 'Refresh',
+      icon: <Download className="w-4 h-4" />,
+      variant: 'secondary' as const,
+      onClick: () => {
+        if (activeTab === 'fields') {
+          fieldsListRef.current?.refreshFields();
+        } else if (activeTab === 'types') {
+          fieldTypesGridRef.current?.refreshTypes();
+        } else if (activeTab === 'rules') {
+          rulesTableRef.current?.refreshRules();
+        }
+        loadData();
+      }
+    },
+    {
+      id: 'add',
+      label: activeTab === 'fields' ? 'Add Field' : activeTab === 'types' ? 'Add Type' : 'Add Rule',
+      icon: <Plus className="w-4 h-4" />,
+      variant: 'primary' as const,
+      onClick: () => {
+        if (activeTab === 'fields') {
+          fieldsListRef.current?.openAddModal();
+        } else if (activeTab === 'types') {
+          fieldTypesGridRef.current?.openAddModal();
+        } else if (activeTab === 'rules') {
+          rulesTableRef.current?.openAddModal();
+        }
       }
     }
   ];
 
-  // 5. Event handlers
-  const handleFieldEdit = (field: Field) => {
-    setEditingField(field);
-    setIsModalOpen(true);
-  };
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="flex items-center space-x-2">
+            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-slate-600">Loading...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const handleFieldDelete = (fieldId: string) => {
-    console.log('Delete field:', fieldId);
-    // Remove from selectedFields if it was selected
-    setSelectedFields(prev => prev.filter(id => id !== fieldId));
-  };
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-red-100 border border-red-300 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-red-700">{error}</p>
+            <button
+              onClick={loadData}
+              className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const handleBulkDelete = () => {
-    if (selectedFields.length > 0) {
-      console.log('Bulk delete fields:', selectedFields);
-      setSelectedFields([]);
-    }
-  };
-
-  const handleBulkStatusChange = (status: string) => {
-    if (selectedFields.length > 0) {
-      console.log('Bulk status change:', selectedFields, 'to', status);
-      setSelectedFields([]);
-    }
-  };
-
-  const handleModalSave = (fieldData: Partial<Field>) => {
-    if (editingField) {
-      console.log('Update field:', editingField.id, fieldData);
-    } else {
-      console.log('Create field:', fieldData);
-    }
-    setIsModalOpen(false);
-    setEditingField(null);
-  };
-
-  const handleModalClose = () => {
-    setIsModalOpen(false);
-    setEditingField(null);
-  };
-
-  // 6. Additional filters for search bar
-  const additionalFilters = [
-    {
-      key: 'category',
-      label: 'Category',
-      value: filterCategory,
-      onChange: setFilterCategory,
-      options: [
-        { value: 'all', label: 'All Categories' },
-        { value: 'technical', label: 'Technical' },
-        { value: 'financial', label: 'Financial' },
-        { value: 'administrative', label: 'Administrative' },
-        { value: 'regulatory', label: 'Regulatory' }
-      ]
-    },
-    {
-      key: 'entityType',
-      label: 'Entity Type',
-      value: filterEntityType,
-      onChange: setFilterEntityType,
-      options: [
-        { value: 'all', label: 'All Types' },
-        { value: 'PROJECT', label: 'Project' },
-        { value: 'USER', label: 'User' },
-        { value: 'ASSET', label: 'Asset' },
-        { value: 'GLOBAL', label: 'Global' }
-      ]
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      value: filterStatus,
-      onChange: setFilterStatus,
-      options: [
-        { value: 'all', label: 'All Status' },
-        { value: 'ACTIVE', label: 'Active' },
-        { value: 'INACTIVE', label: 'Inactive' },
-        { value: 'DEPRECATED', label: 'Deprecated' }
-      ]
-    }
-  ];
-
-  // 7. Render structure (EXACT PATTERN)
   return (
-    <div className={`space-y-6 ${className || ''}`}>
-      {/* Stats Section */}
-      <FieldStats 
-        totalFields={stats.totalFields}
-        activeFields={stats.activeFields}
-        fieldTypes={stats.fieldTypes}
-        fieldCategories={stats.fieldCategories}
-      />
-      
-      {/* Navigation and Actions */}
+    <div className="space-y-6">
+      {/* Success Message */}
+      {successMessage && (
+        <SuccessAlert 
+          message={successMessage} 
+          closable 
+          onClose={() => setSuccessMessage(null)} 
+        />
+      )}
+
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <TabNavigation 
-          tabs={tabs} 
-          activeTab={activeTab} 
-          onTabChange={setActiveTab} 
+        <TabNavigation
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={(tab) => setActiveTab(tab as 'fields' | 'types' | 'rules')}
         />
         <ActionButtonGroup buttons={actionButtons} />
       </div>
 
-      {/* Search and Filters */}
-      <SearchFilterBar 
-        searchValue={searchTerm} 
+      <SearchFilterBar
+        searchValue={searchTerm}
         onSearchChange={setSearchTerm}
-        placeholder={activeTab === 'fields' ? 'Search fields by name, label, or description...' : 'Search field types...'}
-        additionalFilters={activeTab === 'fields' ? additionalFilters : undefined}
+        placeholder={`Search ${activeTab}...`}
+        onFilterClick={() => console.log('Filter clicked')}
       />
 
-      {/* Bulk Actions */}
-      {selectedFields.length > 0 && activeTab === 'fields' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-blue-700">
-              {selectedFields.length} field{selectedFields.length > 1 ? 's' : ''} selected
-            </span>
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleBulkStatusChange('ACTIVE')}
-                className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200"
-              >
-                Activate
-              </button>
-              <button
-                onClick={() => handleBulkStatusChange('INACTIVE')}
-                className="px-3 py-1 text-xs bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200"
-              >
-                Deactivate
-              </button>
-              <button
-                onClick={handleBulkDelete}
-                className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
+      {activeTab === 'fields' && (
+        <FieldsList ref={fieldsListRef} searchTerm={searchTerm} />
       )}
 
-      {/* Content based on active tab */}
-      {activeTab === 'fields' ? (
-        <FieldsTable 
-          fields={filteredFields}
-          selectedFields={selectedFields}
-          onSelectionChange={setSelectedFields}
-          onFieldEdit={handleFieldEdit}
-          onFieldDelete={handleFieldDelete}
-        />
-      ) : (
-        <FieldTypesGrid 
-          fieldTypes={fieldTypeInfo}
-          searchTerm={searchTerm}
-        />
+      {activeTab === 'types' && (
+        <FieldTypesGrid ref={fieldTypesGridRef} searchTerm={searchTerm} />
       )}
 
-      {/* Field Modal */}
-      {isModalOpen && (
-        <FieldModal
-          field={editingField}
-          onSave={handleModalSave}
-          onClose={handleModalClose}
-        />
+      {activeTab === 'rules' && (
+        <RulesTable ref={rulesTableRef} searchTerm={searchTerm} />
       )}
+
+      {/* Import Modal */}
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImport={handleImport}
+        isLoading={importLoading}
+      />
+
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        fields={fields}
+        onExport={handleExport}
+        isLoading={exportLoading}
+      />
     </div>
   );
 }
