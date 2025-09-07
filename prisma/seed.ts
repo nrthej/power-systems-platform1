@@ -1,5 +1,6 @@
 // prisma/seed.ts
 import { PrismaClient } from '@prisma/client';
+import { hashPassword } from '../src/lib/bcrypt';
 
 const prisma = new PrismaClient();
 
@@ -690,18 +691,103 @@ async function seedFieldRules() {
   console.log(`✅ ${rules.length} field rules seeded`);
 }
 
+async function seedRoles() {
+  const roles = [
+    {
+      name: 'Admin',
+      description: 'System administrator with full access',
+      color: 'bg-red-100 text-red-800'
+    },
+    {
+      name: 'Project Manager',
+      description: 'Can manage projects and assign team members',
+      color: 'bg-blue-100 text-blue-800'
+    },
+    {
+      name: 'Engineer',
+      description: 'Can view and edit technical project data',
+      color: 'bg-green-100 text-green-800'
+    },
+    {
+      name: 'Analyst',
+      description: 'Can view and analyze project data',
+      color: 'bg-purple-100 text-purple-800'
+    },
+    {
+      name: 'Viewer',
+      description: 'Read-only access to project information',
+      color: 'bg-gray-100 text-gray-800'
+    }
+  ];
+
+  for (const role of roles) {
+    await prisma.role.upsert({
+      where: { name: role.name },
+      update: role,
+      create: role
+    });
+  }
+
+  console.log(`✅ ${roles.length} roles seeded`);
+}
+
+async function seedUsers() {
+  // Get the Admin role
+  const adminRole = await prisma.role.findUnique({
+    where: { name: 'Admin' }
+  });
+
+  if (!adminRole) {
+    throw new Error('Admin role not found. Please seed roles first.');
+  }
+
+  const hashedPassword = await hashPassword('PowerAdmin2024!');
+
+  const adminUser = await prisma.user.upsert({
+    where: { email: 'admin@powertech.com' },
+    update: {},
+    create: {
+      email: 'admin@powertech.com',
+      name: 'System Administrator',
+      password: hashedPassword,
+      status: 'ACTIVE'
+    }
+  });
+
+  // Assign admin role to admin user
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId: {
+        userId: adminUser.id,
+        roleId: adminRole.id
+      }
+    },
+    update: {},
+    create: {
+      userId: adminUser.id,
+      roleId: adminRole.id
+    }
+  });
+
+  console.log('✅ Admin user seeded with credentials:');
+  console.log('   Email: admin@powertech.com');
+  console.log('   Password: PowerAdmin2024!');
+}
+
 // Main function that calls all seeding functions
 async function main() {
   try {
-    console.log('🌱 Seeding fields data...');
+    console.log('🌱 Seeding database...');
     
+    await seedRoles();
+    await seedUsers();
     await seedFieldTypes();
-    await seedFieldsData();  // CHANGED FROM seedFields to seedFieldsData
+    await seedFieldsData();
     await seedFieldRules();
     
-    console.log('✅ Fields data seeding completed successfully!');
+    console.log('✅ Database seeding completed successfully!');
   } catch (error) {
-    console.error('❌ Error seeding fields data:', error);
+    console.error('❌ Error seeding database:', error);
     throw error;
   } finally {
     await prisma.$disconnect();
