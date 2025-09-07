@@ -5,12 +5,21 @@ import Header from './Header';
 import Dashboard from '@/components/dashboard/Dashboard';
 import UsersPage from '@/components/users/UsersPage';
 
+// Auth components and hooks
+import { LogoutButton, UserInfo } from '@/components/auth/LogoutButton';
+import { useSession } from '@/hooks/useSession';
+
+import { FieldsPage } from '@/components/fields'; // Add this line
+
 interface AppLayoutProps {
   children?: React.ReactNode;
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const [activeNavItem, setActiveNavItem] = useState('dashboard');
+  
+  // Don't require auth here - let middleware handle it
+  const { session, status, user, isLoading, isAuthenticated } = useSession(false);
 
   const handleNavItemClick = (itemId: string) => {
     setActiveNavItem(itemId);
@@ -44,12 +53,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </div>
         );
       case 'fields':
-        return (
-          <div className="text-center py-12">
-            <h2 className="text-2xl font-bold text-slate-800 mb-4">Fields Page</h2>
-            <p className="text-slate-600">Custom fields management coming soon...</p>
-          </div>
-        );
+        return <FieldsPage />; // Replace this line
       case 'preferences':
         return (
           <div className="text-center py-12">
@@ -62,13 +66,62 @@ export default function AppLayout({ children }: AppLayoutProps) {
     }
   };
 
+  const getPageDescription = () => {
+    const descriptions = {
+      dashboard: 'Overview of your power systems projects',
+      projects: 'Manage your power systems projects',
+      maps: 'Geographic view of your projects and assets',
+      reports: 'Analytics and reporting dashboard',
+      users: 'Manage team members and permissions',
+      fields: 'Configure custom fields and data structure',
+      preferences: 'Application settings and preferences'
+    };
+    return descriptions[activeNavItem as keyof typeof descriptions] || '';
+  };
+
+  const getNewItemLabel = () => {
+    if (activeNavItem === 'dashboard') return 'Project';
+    if (activeNavItem === 'users') return 'User';
+    if (activeNavItem === 'fields') return 'Field'; // Add this line
+    return activeNavItem.slice(0, -1);
+  };
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not authenticated, show nothing (middleware will handle redirect)
+  if (!isAuthenticated) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Top Navigation Header */}
-      <Header 
-        activeItem={activeNavItem} 
-        onItemClick={handleNavItemClick}
-      />
+      {/* Header with Navigation and Auth */}
+      <header className="bg-white border-b border-slate-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <Header 
+              activeItem={activeNavItem} 
+              onItemClick={handleNavItemClick}
+            />
+          </div>
+
+          {/* Authentication Section */}
+          <div className="flex items-center space-x-4">
+            <UserInfo />
+            <LogoutButton variant="icon" />
+          </div>
+        </div>
+      </header>
       
       {/* Main Content Area */}
       <main className="flex-1">
@@ -80,22 +133,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
                 {activeNavItem}
               </h1>
               <p className="text-sm text-slate-600">
-                {activeNavItem === 'dashboard' && 'Overview of your power systems projects'}
-                {activeNavItem === 'projects' && 'Manage your power systems projects'}
-                {activeNavItem === 'maps' && 'Geographic view of your projects and assets'}
-                {activeNavItem === 'reports' && 'Analytics and reporting dashboard'}
-                {activeNavItem === 'users' && 'Manage team members and permissions'}
-                {activeNavItem === 'fields' && 'Configure custom fields and data structure'}
-                {activeNavItem === 'preferences' && 'Application settings and preferences'}
+                {getPageDescription()}
               </p>
             </div>
             
             {/* Page Actions */}
-            <div className="flex items-center space-x-3">
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
-                + New {activeNavItem === 'dashboard' ? 'Project' : activeNavItem.slice(0, -1)}
-              </button>
-            </div>
+            
           </div>
         </div>
 

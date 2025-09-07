@@ -1,6 +1,7 @@
 import React from 'react';
 import Card from './Card';
-import { cn } from '@/lib/utils';
+const cn = (...classes: (string | undefined)[]) => classes.filter(Boolean).join(' ');
+
 
 interface Column {
   key: string;
@@ -28,7 +29,7 @@ export function DataTable({
   const allSelected = selectedItems.length === data.length;
 
   return (
-    <Card className={cn('p-0 overflow-hidden', className)}>
+    <Card className={`p-0 overflow-hidden ${className || ''}`}>
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-slate-50">
@@ -46,10 +47,7 @@ export function DataTable({
               {columns.map((column) => (
                 <th 
                   key={column.key}
-                  className={cn(
-                    'text-left p-4 text-xs font-medium text-slate-500 uppercase tracking-wider border-b border-slate-200',
-                    column.className
-                  )}
+                  className={`text-left p-4 text-xs font-medium text-slate-500 uppercase tracking-wider border-b border-slate-200 ${column.className || ''}`}
                 >
                   {column.label}
                 </th>
