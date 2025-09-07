@@ -8,18 +8,19 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id        String     @id @default(cuid())
+  email     String     @unique
   name      String
   password  String
   avatar    String?
   status    UserStatus @default(ACTIVE)
   lastLogin DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
   // Relationships
   userRoles UserRole[]
+  projects  Project[] // ADD THIS LINE
 
   @@map("users")
 }
@@ -40,12 +41,12 @@ model Role {
 }
 
 model Permission {
-  id          String   @id @default(cuid())
-  name        String   @unique
+  id          String           @id @default(cuid())
+  name        String           @unique
   description String?
-  resource    String   
+  resource    String
   action      PermissionAction
-  createdAt   DateTime @default(now())
+  createdAt   DateTime         @default(now())
 
   // Relationships
   rolePermissions RolePermission[]
@@ -90,3 +91,127 @@ enum PermissionAction {
   DELETE
   MANAGE
 }
+
+// Add these models to your existing prisma/schema.prisma file
+// (after your existing User, Role, Permission models)
+
+model FieldType {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  icon        String? // For UI display
+  validation  Json? // Validation rules for this type
+  isSystem    Boolean  @default(true) // System vs custom types
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  fields Field[]
+
+  @@map("field_types")
+}
+
+model Field {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  type        String // References FieldType.name
+  parent      String? // Parent field name for hierarchical fields
+  values      String[] // Permissible values for Select/Multi-Select
+  metadata    Json? // Additional field configuration
+  status      FieldStatus @default(ACTIVE)
+  isRequired  Boolean     @default(false)
+  isSystem    Boolean     @default(false) // System vs user-defined fields
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  fieldType     FieldType      @relation(fields: [type], references: [name])
+  rules         FieldRule[]    @relation("SourceField")
+  targetRules   FieldRule[]    @relation("TargetField")
+  projectFields ProjectField[] // Many-to-many with projects
+
+  @@unique([name]) // Field names must be unique globally
+  @@map("fields")
+}
+
+model FieldRule {
+  id             String   @id @default(cuid())
+  name           String? // Optional rule name for documentation
+  description    String? // Rule description
+  conditionField String // Field that triggers the rule
+  operator       String // =, !=, >, <, contains, etc.
+  value          String // Value to compare against
+  action         String // Clear, Hide, Disable, Enable, Modify, etc.
+  targetField    String // Field affected by the rule
+  actionValue    String? // New value if action is Modify
+  priority       Int      @default(0) // Rule execution order
+  isActive       Boolean  @default(true)
+  projectId      String? // Project-specific rule (null = global)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  sourceField    Field    @relation("SourceField", fields: [conditionField], references: [name])
+  targetFieldRef Field    @relation("TargetField", fields: [targetField], references: [name])
+  project        Project? @relation(fields: [projectId], references: [id])
+
+  @@map("field_rules")
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(PLANNING)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  createdById String
+
+  // Relations
+  fields    ProjectField[] // Many-to-many with fields
+  rules     FieldRule[] // Project-specific rules
+  createdBy User           @relation(fields: [createdById], references: [id])
+
+  @@map("projects")
+}
+
+model ProjectField {
+  id         String   @id @default(cuid())
+  projectId  String
+  fieldName  String
+  value      Json? // Actual field value for this project
+  isVisible  Boolean  @default(true)
+  isRequired Boolean  @default(false)
+  order      Int      @default(0) // Display order
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  field   Field   @relation(fields: [fieldName], references: [name])
+
+  @@unique([projectId, fieldName])
+  @@map("project_fields")
+}
+
+// Add these enums to your existing enums section
+enum FieldStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+// IMPORTANT: Add this relation to your existing User model
+// Update your User model to include this line in the relationships section:
+// projects Project[]

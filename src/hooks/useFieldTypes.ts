@@ -1,8 +1,13 @@
+// hooks/useFieldTypes.ts
 'use client';
 
 import { useState, useCallback } from 'react';
-import { fieldsData } from '@/components/fields/fieldsData';
-import type { FieldType, CreateFieldTypeDto, UpdateFieldTypeDto } from '@/shared/types';
+import { apiClient } from '@/lib/api-client';
+import type { 
+  FieldType, 
+  CreateFieldTypeDto, 
+  UpdateFieldTypeDto,
+} from '@/shared/types';
 
 export function useFieldTypes() {
   const [types, setTypes] = useState<FieldType[]>([]);
@@ -13,61 +18,78 @@ export function useFieldTypes() {
     try {
       setIsLoading(true);
       setError(null);
-      const res = await fieldsData.getFieldTypes();
-      setTypes(res.types);
+      
+      const response = await apiClient.getFieldTypes();
+      setTypes(response);
+      return response;
     } catch (err: any) {
       console.error('Error fetching field types:', err);
-      setError('Failed to fetch field types');
+      const errorMessage = err.message || 'Failed to fetch field types';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const createType = useCallback(async (data: CreateFieldTypeDto) => {
+  const createType = useCallback(async (data: CreateFieldTypeDto): Promise<boolean> => {
     try {
       setIsLoading(true);
       setError(null);
-      const newType: FieldType = {
-        id: crypto.randomUUID(),
-        ...data,
-      };
-      setTypes((prev) => [...prev, newType]);
+
+      const response = await apiClient.createFieldType(data);
+
+      // Add the new field type to the local state
+      setTypes(prev => [...prev, response]);
       return true;
     } catch (err: any) {
       console.error('Error creating field type:', err);
-      setError('Failed to create field type');
+      const errorMessage = err.message || 'Failed to create field type';
+      setError(errorMessage);
       return false;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const updateType = useCallback(async (id: string, data: UpdateFieldTypeDto) => {
+  const updateType = useCallback(async (id: string, data: UpdateFieldTypeDto): Promise<boolean> => {
     try {
       setIsLoading(true);
       setError(null);
-      setTypes((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, ...data } : t))
+
+      const response = await apiClient.updateFieldType(id, data);
+
+      // Update the field type in local state
+      setTypes(prev => 
+        prev.map(type => 
+          type.id === id ? response : type
+        )
       );
       return true;
     } catch (err: any) {
       console.error('Error updating field type:', err);
-      setError('Failed to update field type');
+      const errorMessage = err.message || 'Failed to update field type';
+      setError(errorMessage);
       return false;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const deleteType = useCallback(async (id: string) => {
+  const deleteType = useCallback(async (id: string): Promise<boolean> => {
     try {
       setIsLoading(true);
       setError(null);
-      setTypes((prev) => prev.filter((t) => t.id !== id));
+
+      await apiClient.deleteFieldType(id);
+
+      // Remove the field type from local state
+      setTypes(prev => prev.filter(type => type.id !== id));
       return true;
     } catch (err: any) {
       console.error('Error deleting field type:', err);
-      setError('Failed to delete field type');
+      const errorMessage = err.message || 'Failed to delete field type';
+      setError(errorMessage);
       return false;
     } finally {
       setIsLoading(false);
@@ -75,6 +97,10 @@ export function useFieldTypes() {
   }, []);
 
   const clearError = useCallback(() => setError(null), []);
+
+  const refetch = useCallback(() => {
+    return fetchTypes();
+  }, [fetchTypes]);
 
   return {
     types,
@@ -85,5 +111,6 @@ export function useFieldTypes() {
     updateType,
     deleteType,
     clearError,
+    refetch
   };
 }

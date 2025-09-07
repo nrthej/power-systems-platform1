@@ -1,275 +1,723 @@
 // prisma/seed.ts
-// Secure, idempotent database seeding script
+import { PrismaClient } from '@prisma/client';
 
-import { PrismaClient } from '@prisma/client'
-import bcrypt from 'bcryptjs'
+const prisma = new PrismaClient();
 
-const prisma = new PrismaClient()
+async function seedFieldTypes() {
+  const fieldTypes = [
+    {
+      name: 'Text',
+      description: 'Single-line text input for names, codes, and short descriptions',
+      icon: '📝',
+      isSystem: true,
+      validation: { maxLength: 255 }
+    },
+    {
+      name: 'Number',
+      description: 'Numeric input for capacity, voltage, costs, and measurements',
+      icon: '🔢',
+      isSystem: true,
+      validation: { type: 'number', min: 0 }
+    },
+    {
+      name: 'Date',
+      description: 'Date picker for milestones, deadlines, and commissioning dates',
+      icon: '📅',
+      isSystem: true,
+      validation: { type: 'date' }
+    },
+    {
+      name: 'Boolean',
+      description: 'Yes/No toggle for status flags and conditions',
+      icon: '✅',
+      isSystem: true,
+      validation: { type: 'boolean' }
+    },
+    {
+      name: 'Select',
+      description: 'Single-choice dropdown for standardized options',
+      icon: '📋',
+      isSystem: true,
+      validation: { type: 'select', required: true }
+    },
+    {
+      name: 'Multi-Select',
+      description: 'Multiple-choice selection for tags and categories',
+      icon: '🏷️',
+      isSystem: true,
+      validation: { type: 'multi-select' }
+    },
+    {
+      name: 'Currency',
+      description: 'Monetary values with currency symbols',
+      icon: '💰',
+      isSystem: false,
+      validation: { type: 'number', min: 0, format: 'currency' }
+    },
+    {
+      name: 'Percentage',
+      description: 'Percentage values from 0-100%',
+      icon: '📊',
+      isSystem: false,
+      validation: { type: 'number', min: 0, max: 100, format: 'percentage' }
+    },
+    {
+      name: 'Email',
+      description: 'Email address validation',
+      icon: '📧',
+      isSystem: false,
+      validation: { type: 'email' }
+    },
+    {
+      name: 'URL',
+      description: 'Website and document links',
+      icon: '🔗',
+      isSystem: false,
+      validation: { type: 'url' }
+    }
+  ];
 
-async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 12)
+  for (const fieldType of fieldTypes) {
+    await prisma.fieldType.upsert({
+      where: { name: fieldType.name },
+      update: fieldType,
+      create: fieldType
+    });
+  }
+
+  console.log('✅ Field types seeded');
 }
 
+async function seedFieldsData() {  // RENAMED FROM seedFields to seedFieldsData
+  const fields = [
+    // Project Identification
+    {
+      name: 'Project Name',
+      description: 'Official project name as registered with regulatory authorities',
+      type: 'Text',
+      isRequired: true,
+      isSystem: true,
+      values: []
+    },
+    {
+      name: 'Project Code',
+      description: 'Unique internal project identifier (e.g., PWR-2024-001)',
+      type: 'Text',
+      isRequired: true,
+      isSystem: true,
+      values: []
+    },
+    {
+      name: 'Queue Number',
+      description: 'Interconnection queue position number',
+      type: 'Text',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+    {
+      name: 'FERC ID',
+      description: 'Federal Energy Regulatory Commission identifier',
+      type: 'Text',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+
+    // Technical Specifications
+    {
+      name: 'Technology Type',
+      description: 'Primary generation technology',
+      type: 'Select',
+      isRequired: true,
+      isSystem: false,
+      values: [
+        'Solar PV', 'Wind Onshore', 'Wind Offshore', 'Hydroelectric', 
+        'Natural Gas', 'Nuclear', 'Coal', 'Battery Storage', 'Pumped Storage',
+        'Geothermal', 'Biomass', 'Fuel Cell', 'Hybrid Solar+Storage'
+      ]
+    },
+    {
+      name: 'Nameplate Capacity (MW)',
+      description: 'Maximum electrical output capacity in megawatts',
+      type: 'Number',
+      parent: 'Technology Type',
+      isRequired: true,
+      isSystem: false,
+      values: []
+    },
+    {
+      name: 'Net Capacity (MW)',
+      description: 'Net electrical output after auxiliary loads',
+      type: 'Number',
+      parent: 'Nameplate Capacity (MW)',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+    {
+      name: 'Voltage Level (kV)',
+      description: 'Interconnection voltage level',
+      type: 'Select',
+      isRequired: true,
+      isSystem: false,
+      values: ['12.47', '25', '34.5', '69', '115', '138', '230', '345', '500', '765']
+    },
+    {
+      name: 'Energy Storage Capacity (MWh)',
+      description: 'Battery or storage capacity in megawatt-hours',
+      type: 'Number',
+      parent: 'Technology Type',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+    {
+      name: 'Storage Duration (Hours)',
+      description: 'Duration of energy storage at rated power',
+      type: 'Number',
+      parent: 'Energy Storage Capacity (MWh)',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+
+    // Location & Geography
+    {
+      name: 'State/Province',
+      description: 'Project location state or province',
+      type: 'Select',
+      isRequired: true,
+      isSystem: false,
+      values: [
+        'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado',
+        'Connecticut', 'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Idaho',
+        'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana',
+        'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota',
+        'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada',
+        'New Hampshire', 'New Jersey', 'New Mexico', 'New York',
+        'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon',
+        'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota',
+        'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington',
+        'West Virginia', 'Wisconsin', 'Wyoming'
+      ]
+    },
+    {
+      name: 'County',
+      description: 'County or parish where project is located',
+      type: 'Text',
+      parent: 'State/Province',
+      isRequired: true,
+      isSystem: false,
+      values: []
+    },
+    {
+      name: 'Latitude',
+      description: 'Geographic latitude coordinate',
+      type: 'Number',
+      parent: 'County',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+    {
+      name: 'Longitude',
+      description: 'Geographic longitude coordinate',
+      type: 'Number',
+      parent: 'County',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+    {
+      name: 'Land Area (Acres)',
+      description: 'Total project footprint in acres',
+      type: 'Number',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+
+    // Regulatory & Permits
+    {
+      name: 'Project Status',
+      description: 'Current development phase',
+      type: 'Select',
+      isRequired: true,
+      isSystem: false,
+      values: [
+        'Conceptual', 'Feasibility Study', 'Environmental Review',
+        'Permitting', 'Financing', 'Under Construction', 'Commissioning',
+        'Commercial Operation', 'Decommissioning', 'Cancelled'
+      ]
+    },
+    {
+      name: 'Environmental Review Status',
+      description: 'Environmental assessment progress',
+      type: 'Select',
+      parent: 'Project Status',
+      isRequired: false,
+      isSystem: false,
+      values: [
+        'Not Started', 'Scoping', 'Draft EA/EIS', 'Public Comment',
+        'Final EA/EIS', 'Record of Decision', 'Complete'
+      ]
+    },
+    {
+      name: 'Interconnection Status',
+      description: 'Grid interconnection application status',
+      type: 'Select',
+      isRequired: true,
+      isSystem: false,
+      values: [
+        'Pre-Application', 'Queue Position', 'System Impact Study',
+        'Facilities Study', 'Interconnection Agreement', 'In Service'
+      ]
+    },
+    {
+      name: 'Permit Status',
+      description: 'Construction and operating permit status',
+      type: 'Select',
+      isRequired: false,
+      isSystem: false,
+      values: [
+        'Not Required', 'Application Submitted', 'Under Review',
+        'Approved', 'Issued', 'Expired'
+      ]
+    },
+
+    // Financial Information
+    {
+      name: 'Total Project Cost ($M)',
+      description: 'Total capital expenditure in millions USD',
+      type: 'Currency',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+    {
+      name: 'Cost per MW ($M/MW)',
+      description: 'Capital cost per megawatt',
+      type: 'Currency',
+      parent: 'Total Project Cost ($M)',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+    {
+      name: 'Financing Status',
+      description: 'Project financing arrangement status',
+      type: 'Select',
+      isRequired: false,
+      isSystem: false,
+      values: [
+        'Unfunded', 'Seeking Financing', 'Term Sheet', 'Due Diligence',
+        'Financial Close', 'Fully Funded'
+      ]
+    },
+    {
+      name: 'PPA Status',
+      description: 'Power Purchase Agreement status',
+      type: 'Select',
+      isRequired: false,
+      isSystem: false,
+      values: [
+        'No PPA', 'LOI Signed', 'Under Negotiation', 'Executed',
+        'Merchant', 'Bilateral Contract'
+      ]
+    },
+    {
+      name: 'PPA Price ($/MWh)',
+      description: 'Power purchase agreement price per MWh',
+      type: 'Currency',
+      parent: 'PPA Status',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+
+    // Schedule & Milestones
+    {
+      name: 'Planned COD',
+      description: 'Planned Commercial Operation Date',
+      type: 'Date',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+    {
+      name: 'Construction Start Date',
+      description: 'Actual or planned construction start',
+      type: 'Date',
+      parent: 'Planned COD',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+    {
+      name: 'Mechanical Completion Date',
+      description: 'Equipment installation completion date',
+      type: 'Date',
+      parent: 'Construction Start Date',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+    {
+      name: 'Interconnection Date',
+      description: 'Grid connection energization date',
+      type: 'Date',
+      parent: 'Mechanical Completion Date',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+
+    // Stakeholders & Contacts
+    {
+      name: 'Developer',
+      description: 'Primary project development company',
+      type: 'Text',
+      isRequired: true,
+      isSystem: false,
+      values: []
+    },
+    {
+      name: 'Owner',
+      description: 'Asset owner or operating entity',
+      type: 'Text',
+      parent: 'Developer',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+    {
+      name: 'EPC Contractor',
+      description: 'Engineering, Procurement, Construction contractor',
+      type: 'Text',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+    {
+      name: 'Utility Company',
+      description: 'Interconnecting transmission/distribution utility',
+      type: 'Select',
+      isRequired: true,
+      isSystem: false,
+      values: [
+        'PG&E', 'SCE', 'SDG&E', 'ConEd', 'PSEG', 'Duke Energy',
+        'NextEra Energy', 'Dominion Energy', 'Exelon', 'American Electric Power',
+        'Southern Company', 'Xcel Energy', 'PPL', 'FirstEnergy', 'Entergy'
+      ]
+    },
+    {
+      name: 'ISO/RTO',
+      description: 'Independent System Operator or Regional Transmission Organization',
+      type: 'Select',
+      parent: 'Utility Company',
+      isRequired: true,
+      isSystem: false,
+      values: [
+        'CAISO', 'ERCOT', 'PJM', 'NYISO', 'ISO-NE', 'MISO',
+        'SPP', 'AESO', 'IESO', 'Non-ISO Utility'
+      ]
+    },
+
+    // Performance & Operations
+    {
+      name: 'Capacity Factor (%)',
+      description: 'Expected annual capacity factor percentage',
+      type: 'Percentage',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+    {
+      name: 'Annual Generation (GWh)',
+      description: 'Expected annual electricity generation',
+      type: 'Number',
+      parent: 'Capacity Factor (%)',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+    {
+      name: 'Heat Rate (Btu/kWh)',
+      description: 'Thermal efficiency for fossil fuel plants',
+      type: 'Number',
+      parent: 'Technology Type',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+    {
+      name: 'Emissions Rate (lbs CO2/MWh)',
+      description: 'Carbon dioxide emissions per megawatt-hour',
+      type: 'Number',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+
+    // Risk & Compliance
+    {
+      name: 'Risk Level',
+      description: 'Overall project risk assessment',
+      type: 'Select',
+      isRequired: false,
+      isSystem: false,
+      values: ['Low', 'Medium-Low', 'Medium', 'Medium-High', 'High']
+    },
+    {
+      name: 'Insurance Status',
+      description: 'Project insurance coverage status',
+      type: 'Select',
+      isRequired: false,
+      isSystem: false,
+      values: ['Not Required', 'In Process', 'Bound', 'Active', 'Expired']
+    },
+    {
+      name: 'NERC Compliance Required',
+      description: 'Subject to NERC reliability standards',
+      type: 'Boolean',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    },
+
+    // Additional Metadata
+    {
+      name: 'Data Confidence Level',
+      description: 'Reliability of project information',
+      type: 'Select',
+      isRequired: false,
+      isSystem: true,
+      values: ['Low', 'Medium', 'High', 'Verified']
+    },
+    {
+      name: 'Last Updated By',
+      description: 'User who last modified project data',
+      type: 'Text',
+      isRequired: false,
+      isSystem: true,
+      values: []
+    },
+    {
+      name: 'Data Source',
+      description: 'Primary source of project information',
+      type: 'Multi-Select',
+      isRequired: false,
+      isSystem: true,
+      values: [
+        'Developer Direct', 'Utility Filing', 'ISO Queue', 'Regulatory Filing',
+        'News Media', 'Industry Report', 'Site Visit', 'Public Records'
+      ]
+    },
+    {
+      name: 'Notes',
+      description: 'Additional project notes and comments',
+      type: 'Text',
+      isRequired: false,
+      isSystem: false,
+      values: []
+    }
+  ];
+
+  for (const field of fields) {
+    await prisma.field.upsert({
+      where: { name: field.name },
+      update: field,
+      create: field
+    });
+  }
+
+  console.log(`✅ ${fields.length} fields seeded`);
+}
+
+async function seedFieldRules() {
+  const rules = [
+    // Technology-based rules
+    {
+      name: 'Solar PV Storage Capacity',
+      description: 'Show storage fields only for Solar+Storage projects',
+      conditionField: 'Technology Type',
+      operator: '=',
+      value: 'Hybrid Solar+Storage',
+      action: 'Enable',
+      targetField: 'Energy Storage Capacity (MWh)',
+      priority: 100
+    },
+    {
+      name: 'Storage Duration Requirement',
+      description: 'Require storage duration when storage capacity is specified',
+      conditionField: 'Energy Storage Capacity (MWh)',
+      operator: '>',
+      value: '0',
+      action: 'Require',
+      targetField: 'Storage Duration (Hours)',
+      priority: 90
+    },
+    {
+      name: 'Fossil Heat Rate',
+      description: 'Show heat rate field for fossil fuel technologies',
+      conditionField: 'Technology Type',
+      operator: 'in',
+      value: 'Natural Gas,Coal',
+      action: 'Enable',
+      targetField: 'Heat Rate (Btu/kWh)',
+      priority: 80
+    },
+    {
+      name: 'Renewable Emissions',
+      description: 'Hide emissions rate for renewable technologies',
+      conditionField: 'Technology Type',
+      operator: 'in',
+      value: 'Solar PV,Wind Onshore,Wind Offshore,Hydroelectric,Geothermal',
+      action: 'Hide',
+      targetField: 'Emissions Rate (lbs CO2/MWh)',
+      priority: 85
+    },
+
+    // Status-based rules
+    {
+      name: 'Operational Project COD',
+      description: 'COD is required for commercial operation status',
+      conditionField: 'Project Status',
+      operator: '=',
+      value: 'Commercial Operation',
+      action: 'Require',
+      targetField: 'Planned COD',
+      priority: 95
+    },
+    {
+      name: 'Construction Start Requirement',
+      description: 'Construction start date required for active construction',
+      conditionField: 'Project Status',
+      operator: '=',
+      value: 'Under Construction',
+      action: 'Require',
+      targetField: 'Construction Start Date',
+      priority: 90
+    },
+    {
+      name: 'Cancelled Project Permits',
+      description: 'Hide permit fields for cancelled projects',
+      conditionField: 'Project Status',
+      operator: '=',
+      value: 'Cancelled',
+      action: 'Disable',
+      targetField: 'Permit Status',
+      priority: 100
+    },
+
+    // Financial rules
+    {
+      name: 'PPA Price Requirement',
+      description: 'PPA price required when PPA is executed',
+      conditionField: 'PPA Status',
+      operator: '=',
+      value: 'Executed',
+      action: 'Require',
+      targetField: 'PPA Price ($/MWh)',
+      priority: 80
+    },
+    {
+      name: 'Cost per MW Calculation',
+      description: 'Calculate cost per MW when total cost is available',
+      conditionField: 'Total Project Cost ($M)',
+      operator: '>',
+      value: '0',
+      action: 'Enable',
+      targetField: 'Cost per MW ($M/MW)',
+      priority: 70
+    },
+
+    // Geographic rules
+    {
+      name: 'County Requirement',
+      description: 'County required when state is specified',
+      conditionField: 'State/Province',
+      operator: '!=',
+      value: '',
+      action: 'Require',
+      targetField: 'County',
+      priority: 85
+    },
+    {
+      name: 'Coordinate Pairing',
+      description: 'Longitude required when latitude is provided',
+      conditionField: 'Latitude',
+      operator: '!=',
+      value: '',
+      action: 'Require',
+      targetField: 'Longitude',
+      priority: 75
+    },
+
+    // Capacity validation
+    {
+      name: 'Net Capacity Validation',
+      description: 'Net capacity should not exceed nameplate capacity',
+      conditionField: 'Nameplate Capacity (MW)',
+      operator: '>',
+      value: '0',
+      action: 'Enable',
+      targetField: 'Net Capacity (MW)',
+      priority: 90
+    },
+
+    // NERC compliance
+    {
+      name: 'Large Generator NERC',
+      description: 'NERC compliance required for large generators (>20 MW)',
+      conditionField: 'Nameplate Capacity (MW)',
+      operator: '>',
+      value: '20',
+      action: 'Modify',
+      targetField: 'NERC Compliance Required',
+      actionValue: 'true',
+      priority: 100
+    }
+  ];
+
+  for (const rule of rules) {
+    await prisma.fieldRule.create({
+      data: rule
+    });
+  }
+
+  console.log(`✅ ${rules.length} field rules seeded`);
+}
+
+// Main function that calls all seeding functions
 async function main() {
-  console.log('🌱 Starting secure database seed...')
-
-  // Create roles first (idempotent)
-  const roles = [
-    {
-      name: 'Admin',
-      description: 'Full system access',
-      color: 'bg-red-100 text-red-800'
-    },
-    {
-      name: 'Manager',
-      description: 'Project management access',
-      color: 'bg-blue-100 text-blue-800'
-    },
-    {
-      name: 'Engineer',
-      description: 'Technical project access',
-      color: 'bg-green-100 text-green-800'
-    },
-    {
-      name: 'Viewer',
-      description: 'Read-only access',
-      color: 'bg-gray-100 text-gray-800'
-    }
-  ]
-
-  for (const roleData of roles) {
-    const existingRole = await prisma.role.findUnique({
-      where: { name: roleData.name }
-    })
-
-    if (!existingRole) {
-      await prisma.role.create({
-        data: roleData
-      })
-      console.log(`✅ Created role: ${roleData.name}`)
-    } else {
-      console.log(`⏭️  Role already exists: ${roleData.name}`)
-    }
+  try {
+    console.log('🌱 Seeding fields data...');
+    
+    await seedFieldTypes();
+    await seedFieldsData();  // CHANGED FROM seedFields to seedFieldsData
+    await seedFieldRules();
+    
+    console.log('✅ Fields data seeding completed successfully!');
+  } catch (error) {
+    console.error('❌ Error seeding fields data:', error);
+    throw error;
+  } finally {
+    await prisma.$disconnect();
   }
-
-  // Create users with HASHED passwords (idempotent)
-  const users = [
-    {
-      email: 'admin@powertech.com',
-      name: 'System Administrator',
-      password: 'PowerAdmin2024!',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face',
-      roles: ['Admin']
-    },
-    {
-      email: 'john.manager@powertech.com',
-      name: 'John Smith',
-      password: 'Manager2024!',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=32&h=32&fit=crop&crop=face',
-      roles: ['Manager']
-    },
-    {
-      email: 'sarah.engineer@powertech.com',
-      name: 'Sarah Johnson',
-      password: 'Engineer2024!',
-      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=32&h=32&fit=crop&crop=face',
-      roles: ['Engineer']
-    },
-    {
-      email: 'mike.lead@powertech.com',
-      name: 'Mike Wilson',
-      password: 'TechLead2024!',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=32&h=32&fit=crop&crop=face',
-      roles: ['Manager', 'Engineer']
-    },
-    {
-      email: 'lisa.analyst@powertech.com',
-      name: 'Lisa Davis',
-      password: 'Analyst2024!',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=32&h=32&fit=crop&crop=face',
-      roles: ['Viewer']
-    }
-  ]
-
-  for (const userData of users) {
-    const existingUser = await prisma.user.findUnique({
-      where: { email: userData.email }
-    })
-
-    if (!existingUser) {
-      // CRITICAL: Hash password with bcrypt (NEVER store plain text)
-      console.log(`🔐 Hashing password for ${userData.email}...`)
-      const hashedPassword = await hashPassword(userData.password)
-
-      // Create user with hashed password
-      const user = await prisma.user.create({
-        data: {
-          email: userData.email,
-          name: userData.name,
-          password: hashedPassword, // ✅ HASHED PASSWORD
-          avatar: userData.avatar,
-          status: 'ACTIVE'
-        }
-      })
-
-      // Assign roles
-      for (const roleName of userData.roles) {
-        const role = await prisma.role.findUnique({
-          where: { name: roleName }
-        })
-
-        if (role) {
-          await prisma.userRole.create({
-            data: {
-              userId: user.id,
-              roleId: role.id
-            }
-          })
-        }
-      }
-
-      console.log(`✅ Created user: ${userData.name} (${userData.email})`)
-    } else {
-      console.log(`⏭️  User already exists: ${userData.email}`)
-    }
-  }
-
-  // Create permissions (for future use)
-  const permissions = [
-    // Users
-    { name: 'users.create',  description: 'Create users',         resource: 'users',   action: 'CREATE' },
-    { name: 'users.read',    description: 'View user information',resource: 'users',   action: 'READ'   },
-    { name: 'users.update',  description: 'Update users',         resource: 'users',   action: 'UPDATE' },
-    { name: 'users.delete',  description: 'Delete users',         resource: 'users',   action: 'DELETE' },
-  
-    // Roles
-    { name: 'roles.create',  description: 'Create roles',         resource: 'roles',   action: 'CREATE' },
-    { name: 'roles.read',    description: 'View role information',resource: 'roles',   action: 'READ'   },
-    { name: 'roles.update',  description: 'Update roles',         resource: 'roles',   action: 'UPDATE' },
-    { name: 'roles.delete',  description: 'Delete roles',         resource: 'roles',   action: 'DELETE' },
-  
-    // Projects
-    { name: 'projects.create', description: 'Create projects',    resource: 'projects',action: 'CREATE' },
-    { name: 'projects.read',   description: 'View projects',      resource: 'projects',action: 'READ'   },
-    { name: 'projects.update', description: 'Update projects',    resource: 'projects',action: 'UPDATE' },
-    { name: 'projects.delete', description: 'Delete projects',    resource: 'projects',action: 'DELETE' }
-  ]
-  
-
-  for (const permissionData of permissions) {
-    const existingPermission = await prisma.permission.findUnique({
-      where: { name: permissionData.name }
-    })
-
-    if (!existingPermission) {
-      await prisma.permission.create({
-        data: permissionData
-      })
-      console.log(`✅ Created permission: ${permissionData.name}`)
-    } else {
-      console.log(`⏭️  Permission already exists: ${permissionData.name}`)
-    }
-  }
-
-  // Assign permissions to roles
-  const rolePermissions = [
-    {
-      roleName: 'Admin',
-      permissions: [
-        'users.create','users.read','users.update','users.delete',
-        'roles.create','roles.read','roles.update','roles.delete',
-        'projects.create','projects.read','projects.update','projects.delete'
-      ]
-    },
-    {
-      roleName: 'Manager',
-      permissions: [
-        'users.read','users.create','users.update',
-        'roles.read',
-        'projects.read','projects.create','projects.update'
-      ]
-    },
-    {
-      roleName: 'Engineer',
-      permissions: [
-        'users.read',
-        'projects.read','projects.update'
-      ]
-    },
-    {
-      roleName: 'Viewer',
-      permissions: [
-        'users.read',
-        'roles.read',
-        'projects.read'
-      ]
-    }
-  ]
-
-  for (const rolePermissionData of rolePermissions) {
-    const role = await prisma.role.findUnique({
-      where: { name: rolePermissionData.roleName }
-    })
-
-    if (role) {
-      for (const permissionName of rolePermissionData.permissions) {
-        const permission = await prisma.permission.findUnique({
-          where: { name: permissionName }
-        })
-
-        if (permission) {
-          const existingRolePermission = await prisma.rolePermission.findUnique({
-            where: {
-              roleId_permissionId: {
-                roleId: role.id,
-                permissionId: permission.id
-              }
-            }
-          })
-
-          if (!existingRolePermission) {
-            await prisma.rolePermission.create({
-              data: {
-                roleId: role.id,
-                permissionId: permission.id
-              }
-            })
-          }
-        }
-      }
-      console.log(`✅ Assigned permissions to role: ${rolePermissionData.roleName}`)
-    }
-  }
-
-  console.log('\n🎉 Secure database seeding completed successfully!')
-  console.log('\n📊 Summary:')
-  
-  const userCount = await prisma.user.count()
-  const roleCount = await prisma.role.count()
-  const permissionCount = await prisma.permission.count()
-  
-  console.log(`   Users: ${userCount}`)
-  console.log(`   Roles: ${roleCount}`)
-  console.log(`   Permissions: ${permissionCount}`)
-  
-  console.log('\n🔑 Test Credentials:')
-  console.log('   System Admin: admin@powertech.com / PowerAdmin2024!')
-  console.log('   Project Manager: sarah.mitchell@powertech.com / ProjectMgr2024!')
-  console.log('   Senior Engineer: david.chen@powertech.com / SeniorEng2024!')
-  console.log('   Power Engineer: maria.gonzalez@powertech.com / PowerEng2024!')
-  console.log('   Field Technician: james.thompson@powertech.com / FieldTech2024!')
-  console.log('   Safety Officer: lisa.wang@powertech.com / SafetyOff2024!')
-  console.log('   Client Liaison: michael.brown@powertech.com / ClientLias2024!')
-  console.log('   Analyst: emma.davis@powertech.com / Analyst2024!')
-  console.log('   Viewer: jennifer.lee@powertech.com / Viewer2024!')
-  console.log('\n⚠️  IMPORTANT: All passwords are properly hashed with bcrypt!')
 }
 
-main()
-  .catch((e) => {
-    console.error('❌ Seeding failed:', e)
-    process.exit(1)
-  })
-  .finally(async () => {
-    await prisma.$disconnect()
-  })
+// Export for use in other files
+export async function seedFields() {
+  return main();
+}
+
+// Run seeding if this file is executed directly
+if (require.main === module) {
+  main()
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}
