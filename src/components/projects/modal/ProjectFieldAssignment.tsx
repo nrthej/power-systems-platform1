@@ -1,7 +1,7 @@
 // components/projects/modal/ProjectFieldAssignment.tsx
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Search,
   X,
@@ -32,166 +32,69 @@ export function ProjectFieldAssignment({
   mode = 'add'
 }: ProjectFieldAssignmentProps) {
   
-  // Create simple field objects from the field names
-  const allFields = useMemo(() => {
-    const assigned = Array.isArray(assignedFields) ? assignedFields : [];
-    const unassigned = Array.isArray(unassignedFields) ? unassignedFields : [];
-    
-    return [...assigned, ...unassigned].map(fieldName => ({
-      id: fieldName.replace(/\s+/g, '_').toLowerCase(),
-      name: fieldName,
-      description: `Field for ${fieldName}`,
-      type: getFieldType(fieldName),
-      status: 'ACTIVE' as const,
-      isRequired: isRequiredField(fieldName),
-      isSelected: assigned.includes(fieldName)
-    }));
-  }, [assignedFields, unassignedFields]);
+  console.log('🟦 ProjectFieldAssignment rendered:', { assignedFields, unassignedFields });
 
-  // Helper function to determine field type based on name
-  function getFieldType(fieldName: string): string {
-    const name = fieldName.toLowerCase();
-    if (name.includes('date') || name.includes('cod')) return 'Date';
-    if (name.includes('capacity') || name.includes('cost') || name.includes('mw') || name.includes('$')) return 'Number';
-    if (name.includes('status') || name.includes('type') || name.includes('state')) return 'Select';
-    if (name.includes('email')) return 'Email';
-    return 'Text';
-  }
-
-  // Helper function to determine if field is required
-  function isRequiredField(fieldName: string): boolean {
-    const requiredFields = ['Project Name', 'Project Code', 'Technology Type'];
-    return requiredFields.includes(fieldName);
-  }
-
-  // UI State
+  // Simple state - no complex logic
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'SELECTED' | 'UNSELECTED'>('ALL');
-  const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set());
 
-  // Sync with props
-  useEffect(() => {
-    try {
-      const assigned = Array.isArray(assignedFields) ? assignedFields : [];
-      setSelectedFields(new Set(assigned));
-    } catch (error) {
-      console.error('Error syncing selected fields:', error);
-      setSelectedFields(new Set());
-    }
-  }, [assignedFields]);
+  // Safety checks and simple field processing
+  const safeAssigned = Array.isArray(assignedFields) ? assignedFields : [];
+  const safeUnassigned = Array.isArray(unassignedFields) ? unassignedFields : [];
+  const allFieldNames = [...safeAssigned, ...safeUnassigned];
 
-  // Get all available field types
-  const fieldTypes = useMemo(() => {
-    const types = new Set<string>();
-    allFields.forEach(field => types.add(field.type));
-    return Array.from(types).sort();
-  }, [allFields]);
-
-  // Filter and search logic
+  // Simple filtering
   const filteredFields = useMemo(() => {
-    let filtered = [...allFields];
-    
-    try {
-      // Apply search filter
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        filtered = filtered.filter(field => 
-          field.name.toLowerCase().includes(searchLower) ||
-          field.description.toLowerCase().includes(searchLower) ||
-          field.type.toLowerCase().includes(searchLower)
-        );
-      }
-      
-      // Apply status filter
-      if (statusFilter === 'SELECTED') {
-        filtered = filtered.filter(field => selectedFields.has(field.name));
-      } else if (statusFilter === 'UNSELECTED') {
-        filtered = filtered.filter(field => !selectedFields.has(field.name));
-      }
-      
-      // Apply type filter
-      if (typeFilter !== 'ALL') {
-        filtered = filtered.filter(field => field.type === typeFilter);
-      }
-      
-      return filtered;
-    } catch (error) {
-      console.error('Error filtering fields:', error);
-      return allFields;
-    }
-  }, [allFields, searchTerm, statusFilter, typeFilter, selectedFields]);
+    if (!searchTerm) return allFieldNames;
+    return allFieldNames.filter(field => 
+      field.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [allFieldNames, searchTerm]);
 
-  // Handle checkbox selection
-  const handleFieldSelection = (fieldName: string, isChecked: boolean) => {
+  // Simple handlers
+  const handleFieldToggle = (fieldName: string) => {
     try {
-      const newSelection = new Set(selectedFields);
-      
-      if (isChecked) {
-        newSelection.add(fieldName);
-        if (!assignedFields.includes(fieldName)) {
-          onMoveField(fieldName, 'assign');
-        }
-      } else {
-        newSelection.delete(fieldName);
-        if (assignedFields.includes(fieldName)) {
-          onMoveField(fieldName, 'unassign');
-        }
-      }
-      
-      setSelectedFields(newSelection);
+      console.log('🔄 Toggling field:', fieldName);
+      const isAssigned = safeAssigned.includes(fieldName);
+      onMoveField(fieldName, isAssigned ? 'unassign' : 'assign');
     } catch (error) {
-      console.error('Error handling field selection:', error);
+      console.error('❌ Error toggling field:', error);
     }
   };
 
-  // Handle select all
   const handleSelectAll = () => {
     try {
-      const allFieldNames = filteredFields.map(f => f.name);
-      const allSelected = allFieldNames.every(name => selectedFields.has(name));
+      console.log('🔄 Select all clicked');
+      const allSelected = filteredFields.every(field => safeAssigned.includes(field));
       
       if (allSelected) {
-        // Deselect all filtered fields
-        const fieldsToUnassign = allFieldNames.filter(name => assignedFields.includes(name));
+        // Unassign all
+        const fieldsToUnassign = filteredFields.filter(field => safeAssigned.includes(field));
         if (fieldsToUnassign.length > 0) {
           onMoveBulkFields(fieldsToUnassign, 'unassign');
         }
       } else {
-        // Select all filtered fields
-        const fieldsToAssign = allFieldNames.filter(name => !assignedFields.includes(name));
+        // Assign all
+        const fieldsToAssign = filteredFields.filter(field => !safeAssigned.includes(field));
         if (fieldsToAssign.length > 0) {
           onMoveBulkFields(fieldsToAssign, 'assign');
         }
       }
     } catch (error) {
-      console.error('Error handling select all:', error);
+      console.error('❌ Error in select all:', error);
     }
   };
 
-  const getStatusBadge = (isSelected: boolean) => {
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium border ${
-        isSelected 
-          ? 'bg-green-100 text-green-800 border-green-200' 
-          : 'bg-gray-100 text-gray-800 border-gray-200'
-      }`}>
-        {isSelected ? 'Selected' : 'Available'}
-      </span>
-    );
-  };
+  const selectedCount = safeAssigned.length;
+  const totalCount = allFieldNames.length;
 
-  const selectedCount = selectedFields.size;
-  const totalCount = allFields.length;
-
-  // Safety check - if no fields, show message
-  if (!allFields || allFields.length === 0) {
+  // Safety fallback
+  if (allFieldNames.length === 0) {
     return (
       <div className="p-6 text-center">
         <Database className="w-12 h-12 text-slate-300 mx-auto mb-4" />
         <h3 className="text-lg font-medium text-slate-900 mb-2">No fields available</h3>
-        <p className="text-slate-600">Please ensure fields are properly loaded.</p>
+        <p className="text-slate-600">Fields will appear here when loaded.</p>
       </div>
     );
   }
@@ -247,87 +150,29 @@ export function ProjectFieldAssignment({
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="space-y-4">
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search fields by name, description, or type..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            disabled={isLoading}
-            className="w-full pl-10 pr-10 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-slate-200 rounded"
-            >
-              <X className="w-4 h-4 text-slate-500" />
-            </button>
-          )}
-        </div>
-
-        {/* Filters Panel */}
-        {showFilters && (
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Status Filter */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Selection Status
-                </label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as any)}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="ALL">All Fields</option>
-                  <option value="SELECTED">Selected Only</option>
-                  <option value="UNSELECTED">Unselected Only</option>
-                </select>
-              </div>
-
-              {/* Type Filter */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Field Type
-                </label>
-                <select
-                  value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="ALL">All Types</option>
-                  {fieldTypes.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            
-            {/* Clear Filters */}
-            <div className="flex justify-end mt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setStatusFilter('ALL');
-                  setTypeFilter('ALL');
-                  setSearchTerm('');
-                }}
-                className="text-sm text-slate-600 hover:text-slate-800 underline"
-              >
-                Clear all filters
-              </button>
-            </div>
-          </div>
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <input
+          type="text"
+          placeholder="Search fields..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          disabled={isLoading}
+          className="w-full pl-10 pr-10 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+        />
+        {searchTerm && (
+          <button
+            type="button"
+            onClick={() => setSearchTerm('')}
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-slate-200 rounded"
+          >
+            <X className="w-4 h-4 text-slate-500" />
+          </button>
         )}
       </div>
 
-      {/* Table */}
+      {/* Simple Table */}
       <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
         {/* Table Header */}
         <div className="bg-slate-50 border-b border-slate-200 px-6 py-3">
@@ -336,20 +181,14 @@ export function ProjectFieldAssignment({
               <input
                 type="checkbox"
                 checked={selectedCount === totalCount && totalCount > 0}
-                ref={(input) => {
-                  if (input) {
-                    input.indeterminate = selectedCount > 0 && selectedCount < totalCount;
-                  }
-                }}
                 onChange={handleSelectAll}
                 disabled={isLoading}
                 className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 focus:ring-2"
               />
             </div>
-            <div className="col-span-4">Field Name</div>
-            <div className="col-span-2">Type</div>
-            <div className="col-span-4">Description</div>
-            <div className="col-span-1">Status</div>
+            <div className="col-span-6">Field Name</div>
+            <div className="col-span-3">Type</div>
+            <div className="col-span-2">Status</div>
           </div>
         </div>
 
@@ -360,19 +199,19 @@ export function ProjectFieldAssignment({
               <Database className="w-12 h-12 text-slate-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-slate-900 mb-2">No fields found</h3>
               <p className="text-slate-600">
-                {searchTerm || statusFilter !== 'ALL' || typeFilter !== 'ALL'
-                  ? 'Try adjusting your search or filter criteria.'
-                  : 'No fields are available for assignment.'}
+                {searchTerm ? 'Try adjusting your search criteria.' : 'No fields available.'}
               </p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {filteredFields.map((field) => {
-                const isSelected = selectedFields.has(field.name);
+              {filteredFields.map((fieldName) => {
+                const isSelected = safeAssigned.includes(fieldName);
+                const fieldType = fieldName.toLowerCase().includes('date') ? 'Date' : 
+                                 fieldName.toLowerCase().includes('capacity') ? 'Number' : 'Text';
                 
                 return (
                   <div
-                    key={field.id}
+                    key={fieldName}
                     className={`px-6 py-3 hover:bg-slate-50 transition-colors ${
                       isSelected ? 'bg-blue-50' : ''
                     }`}
@@ -383,43 +222,37 @@ export function ProjectFieldAssignment({
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          onChange={(e) => handleFieldSelection(field.name, e.target.checked)}
+                          onChange={() => handleFieldToggle(fieldName)}
                           disabled={isLoading}
                           className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 focus:ring-2"
                         />
                       </div>
 
                       {/* Field Name */}
-                      <div className="col-span-4 flex items-center">
+                      <div className="col-span-6">
                         <span className={`text-sm ${
-                          isSelected 
-                            ? 'font-medium text-blue-900' 
-                            : 'text-slate-900'
+                          isSelected ? 'font-medium text-blue-900' : 'text-slate-900'
                         }`}>
-                          {field.name}
-                          {field.isRequired && (
-                            <span className="text-red-500 ml-1">*</span>
-                          )}
+                          {fieldName}
                         </span>
                       </div>
 
                       {/* Type */}
-                      <div className="col-span-2">
+                      <div className="col-span-3">
                         <span className="text-sm text-slate-600 font-mono">
-                          {field.type}
-                        </span>
-                      </div>
-
-                      {/* Description */}
-                      <div className="col-span-4">
-                        <span className="text-sm text-slate-600">
-                          {field.description}
+                          {fieldType}
                         </span>
                       </div>
 
                       {/* Status */}
-                      <div className="col-span-1">
-                        {getStatusBadge(isSelected)}
+                      <div className="col-span-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${
+                          isSelected 
+                            ? 'bg-green-100 text-green-800 border-green-200' 
+                            : 'bg-gray-100 text-gray-800 border-gray-200'
+                        }`}>
+                          {isSelected ? 'Selected' : 'Available'}
+                        </span>
                       </div>
                     </div>
                   </div>

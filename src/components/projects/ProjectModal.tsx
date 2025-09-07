@@ -48,7 +48,18 @@ export function ProjectModal({
   } = useProjectModal(isOpen, project);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    // console.log('🚨 handleSubmit called! Event:', e);
+    // console.log('🚨 Event type:', e.type);
+    // console.log('🚨 Event target:', e.target);
+    // console.log('🚨 Current step:', step);
+    // e.preventDefault();
+
+    // if (step === 3) {
+    //   console.log('🚨 STEP 3 - WHY IS SUBMIT BEING CALLED?');
+    //   console.log('🚨 Stack trace:', new Error().stack);
+    //   // Temporarily return early to prevent submission
+    //   return;
+    // }
     
     try {
       console.log('🔄 Form submission started, step:', step);
@@ -167,7 +178,7 @@ export function ProjectModal({
               </p>
             </div>
           </div>
-          <button
+          <button type="button"
             onClick={handleClose}
             className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-all"
             disabled={isLoading}
@@ -234,17 +245,18 @@ export function ProjectModal({
             />
           )}
 
-          {step === 3 && (
-            <ProjectFieldAssignment
-              assignedFields={assignedFields}
-              unassignedFields={unassignedFields}
-              onMoveField={moveField}
-              onMoveAllFields={moveAllFields}
-              onMoveBulkFields={moveBulkFields}
-              isLoading={isLoading}
-              mode={isEditing ? 'edit' : 'add'}
-            />
-          )}
+        {step === 3 && (
+          <ProjectFieldAssignment
+            assignedFields={assignedFields}
+            unassignedFields={unassignedFields}
+            onMoveField={moveField}
+            onMoveAllFields={moveAllFields}
+            onMoveBulkFields={moveBulkFields}
+            isLoading={isLoading}
+            mode={isEditing ? 'edit' : 'add'}
+          />
+          
+        )}
 
           {/* Navigation and Actions */}
           <div className="flex justify-between items-center p-6 border-t border-slate-200 bg-slate-50">
@@ -281,7 +293,7 @@ export function ProjectModal({
                 </Button>
               ) : (
                 <Button
-                  type="submit"
+                  type="button"
                   disabled={isLoading}
                 >
                   {isLoading ? (

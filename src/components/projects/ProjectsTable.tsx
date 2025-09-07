@@ -204,7 +204,7 @@ export const ProjectsTable = forwardRef<ProjectsTableRef, ProjectsTableProps>(
         </td>
         <td className="p-4 text-right">
           <div className="flex items-center justify-end space-x-2">
-            <button
+            <button type="button"
               onClick={() => {
                 setEditingProject(project);
                 setIsModalOpen(true);
@@ -214,7 +214,7 @@ export const ProjectsTable = forwardRef<ProjectsTableRef, ProjectsTableProps>(
             >
               <Edit className="w-4 h-4" />
             </button>
-            <button
+            <button type="button"
               onClick={() => {
                 setDeletingProject(project);
                 setIsDeleteModalOpen(true);
@@ -224,7 +224,7 @@ export const ProjectsTable = forwardRef<ProjectsTableRef, ProjectsTableProps>(
             >
               <Trash2 className="w-4 h-4" />
             </button>
-            <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-all">
+            <button type="button" className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-all">
               <MoreVertical className="w-4 h-4" />
             </button>
           </div>
@@ -251,7 +251,7 @@ export const ProjectsTable = forwardRef<ProjectsTableRef, ProjectsTableProps>(
           <div className="text-center">
             <div className="text-red-600 mb-2">Error loading projects</div>
             <p className="text-slate-600 mb-4">{error}</p>
-            <button
+            <button type="button"
               onClick={loadProjects}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
@@ -278,7 +278,7 @@ export const ProjectsTable = forwardRef<ProjectsTableRef, ProjectsTableProps>(
                 }
               </p>
               {!searchTerm && (
-                <button
+                <button type="button"
                   onClick={() => {
                     setEditingProject(null);
                     setIsModalOpen(true);

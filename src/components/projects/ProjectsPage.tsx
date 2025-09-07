@@ -179,7 +179,7 @@ export default function ProjectsPage() {
         <div className="bg-red-100 border border-red-300 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <p className="text-red-700">{error}</p>
-            <button
+            <button type="button"
               onClick={loadData}
               className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
             >
@@ -226,11 +226,11 @@ export default function ProjectsPage() {
             <span className="text-sm text-slate-600 font-medium">
               {selectedProjects.length} selected
             </span>
-            <button className="inline-flex items-center px-3 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors">
+            <button type="button" className="inline-flex items-center px-3 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors">
               <Edit className="w-3 h-3 mr-1" />
               Edit
             </button>
-            <button className="inline-flex items-center px-3 py-1 text-xs font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200 transition-colors">
+            <button type="button" className="inline-flex items-center px-3 py-1 text-xs font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200 transition-colors">
               <Trash2 className="w-3 h-3 mr-1" />
               Delete
             </button>
