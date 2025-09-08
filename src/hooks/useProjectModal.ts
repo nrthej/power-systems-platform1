@@ -5,6 +5,8 @@ import type { Project, User } from '@/shared/types';
 export interface ProjectFormData {
   name: string;
   description: string;
+  startDate?: string;
+  endDate?: string;
   adminUserIds: string[];
   projectManagerIds: string[];
   developerIds: string[];
@@ -16,6 +18,8 @@ export function useProjectModal(isOpen: boolean, project?: Project | null) {
   const [formData, setFormData] = useState<ProjectFormData>({
     name: '',
     description: '',
+    startDate: '',
+    endDate: '',
     adminUserIds: [],
     projectManagerIds: [],
     developerIds: [],
@@ -51,6 +55,8 @@ export function useProjectModal(isOpen: boolean, project?: Project | null) {
         setFormData({
           name: project.name || '',
           description: project.description || '',
+          startDate: project.startDate ? project.startDate.toISOString().split('T')[0] : '',
+          endDate: project.endDate ? project.endDate.toISOString().split('T')[0] : '',
           adminUserIds: project.projectUsers?.filter(pu => pu.role === 'ADMIN').map(pu => pu.userId) || [],
           projectManagerIds: project.projectUsers?.filter(pu => pu.role === 'PROJECT_MANAGER').map(pu => pu.userId) || [],
           developerIds: project.projectUsers?.filter(pu => pu.role === 'DEVELOPER').map(pu => pu.userId) || [],
@@ -223,6 +229,8 @@ export function useProjectModal(isOpen: boolean, project?: Project | null) {
       setFormData({
         name: '',
         description: '',
+        startDate: '',
+        endDate: '',
         adminUserIds: [],
         projectManagerIds: [],
         developerIds: [],
